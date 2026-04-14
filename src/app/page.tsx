@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import type {
   PlayerData,
   CalculationResult,
@@ -27,6 +27,12 @@ export default function Home() {
 
   return (
     <div className="flex flex-col min-h-full">
+      {process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID && (
+        <AdBanner
+          clientId={process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID}
+          slotId={process.env.NEXT_PUBLIC_ADSENSE_SLOT_ID ?? ""}
+        />
+      )}
       <header className="border-b border-zinc-200 bg-white">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 py-5">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
@@ -66,8 +72,18 @@ export default function Home() {
       </main>
 
       <footer className="border-t border-zinc-200 bg-white mt-auto">
-        <div className="mx-auto max-w-4xl px-4 py-4 text-center text-xs text-zinc-400">
-          Player data &copy; 2026 PDGA
+        <div className="mx-auto max-w-4xl px-4 py-4 flex flex-col items-center gap-2">
+          <a
+            href="https://www.hyzershop.no"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm font-medium text-blue-600 hover:underline"
+          >
+            hyzershop.no
+          </a>
+          <span className="text-xs text-zinc-400">
+            Player data &copy; 2026 PDGA
+          </span>
         </div>
       </footer>
     </div>
@@ -727,6 +743,39 @@ function ErrorMessage({ message }: { message: string }) {
         Try checking the PDGA number, or use Manual mode to enter rounds
         directly.
       </p>
+    </div>
+  );
+}
+
+declare global {
+  interface Window {
+    adsbygoogle: unknown[];
+  }
+}
+
+function AdBanner({ clientId, slotId }: { clientId: string; slotId: string }) {
+  const pushed = useRef(false);
+
+  useEffect(() => {
+    if (pushed.current) return;
+    try {
+      (window.adsbygoogle = window.adsbygoogle || []).push({});
+      pushed.current = true;
+    } catch {
+      // AdSense not loaded yet or blocked
+    }
+  }, []);
+
+  return (
+    <div className="w-full bg-zinc-100" style={{ minHeight: 50 }}>
+      <ins
+        className="adsbygoogle"
+        style={{ display: "block" }}
+        data-ad-client={clientId}
+        data-ad-slot={slotId}
+        data-ad-format="auto"
+        data-full-width-responsive="true"
+      />
     </div>
   );
 }
