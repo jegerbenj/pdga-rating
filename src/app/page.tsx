@@ -8,7 +8,7 @@ import type {
 } from "@/lib/types";
 import { calculateRating } from "@/lib/rating-calculator";
 
-type Tab = "manual" | "fetch" | "goal";
+type Tab = "manual" | "fetch";
 
 interface NewRound {
   id: number;
@@ -26,10 +26,9 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<Tab>("fetch");
   const [playerData, setPlayerData] = useState<PlayerData | null>(null);
 
-  const tabs: { id: Tab; label: string; disabled?: boolean }[] = [
-    { id: "fetch", label: "PDGA Fetch" },
-    { id: "goal", label: "Goal", disabled: !playerData },
-    { id: "manual", label: "Manual" },
+  const tabs: { id: Tab; label: string }[] = [
+    { id: "fetch", label: "PDGA-søk" },
+    { id: "manual", label: "Manuell" },
   ];
 
   return (
@@ -43,10 +42,10 @@ export default function Home() {
       <header className="border-b border-zinc-800 bg-zinc-900">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 py-5">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
-            PDGA Rating Calculator
+            PDGA Rating-kalkulator
           </h1>
           <p className="mt-1 text-sm text-zinc-400">
-            Calculate ratings from rated rounds using PDGA rules
+            Beregn rating fra ratede runder basert på PDGA-regler
           </p>
         </div>
       </header>
@@ -56,14 +55,11 @@ export default function Home() {
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => !tab.disabled && setActiveTab(tab.id)}
-              disabled={tab.disabled}
-              className={`flex-1 sm:flex-none px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 sm:flex-none px-4 py-3 text-sm font-medium border-b-2 transition-colors cursor-pointer ${
                 activeTab === tab.id
                   ? "border-white text-white"
-                  : tab.disabled
-                    ? "border-transparent text-zinc-700 cursor-not-allowed"
-                    : "border-transparent text-zinc-500 hover:text-zinc-300"
+                  : "border-transparent text-zinc-500 hover:text-zinc-300"
               }`}
             >
               {tab.label}
@@ -74,7 +70,6 @@ export default function Home() {
         {activeTab === "fetch" && (
           <FetchMode playerData={playerData} onPlayerData={setPlayerData} />
         )}
-        {activeTab === "goal" && <GoalMode playerData={playerData} />}
         {activeTab === "manual" && <ManualMode />}
       </main>
 
@@ -89,7 +84,7 @@ export default function Home() {
             hyzershop.no
           </a>
           <span className="text-xs text-zinc-600">
-            Player data &copy; 2026 PDGA
+            Spillerdata &copy; 2026 PDGA
           </span>
         </div>
       </footer>
@@ -115,7 +110,7 @@ function FetchMode({
   async function handleFetch() {
     const num = parseInt(pdgaNumber, 10);
     if (isNaN(num) || num <= 0) {
-      setError("Please enter a valid PDGA number.");
+      setError("Vennligst oppgi et gyldig PDGA-nummer.");
       return;
     }
 
@@ -128,12 +123,12 @@ function FetchMode({
       const res = await fetch(`/api/pdga/${num}`);
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Failed to fetch player data.");
+        setError(data.error || "Kunne ikke hente spillerdata.");
         return;
       }
       onPlayerData(data as PlayerData);
     } catch {
-      setError("Network error. Could not reach the server.");
+      setError("Nettverksfeil. Kunne ikke nå serveren.");
     } finally {
       setLoading(false);
     }
@@ -171,7 +166,7 @@ function FetchMode({
     const parsedNewRounds = newRounds
       .filter((r) => r.rating.trim() !== "")
       .map((r) => ({
-        eventName: "New round",
+        eventName: "Ny runde",
         date: ratingDate,
         roundRating: parseInt(r.rating, 10),
         isNew: true,
@@ -195,7 +190,7 @@ function FetchMode({
             htmlFor="pdga-number"
             className="block text-sm font-medium text-zinc-300 mb-1.5"
           >
-            PDGA Number
+            PDGA-nummer
           </label>
           <input
             id="pdga-number"
@@ -246,6 +241,8 @@ function FetchMode({
             rounds={result?.rounds ?? null}
             allRounds={playerData.rounds}
           />
+
+          <GoalSection playerData={playerData} />
         </div>
       )}
     </div>
@@ -274,8 +271,8 @@ function NewRoundsInput({
           htmlFor="rating-date"
           className="block text-sm font-medium text-zinc-300 mb-1.5"
         >
-          Next rating update date{" "}
-          <span className="font-normal text-zinc-500">(every 2nd Tuesday each month)</span>
+          Neste ratingoppdatering{" "}
+          <span className="font-normal text-zinc-500">(annenhver tirsdag hver måned)</span>
         </label>
         <input
           id="rating-date"
@@ -285,14 +282,14 @@ function NewRoundsInput({
           className="w-full sm:w-auto rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-100 px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-zinc-400"
         />
         <p className="mt-1 text-xs text-zinc-600">
-          The 365-day window is counted back from this date.
+          365-dagers vinduet beregnes tilbake fra denne datoen.
         </p>
       </div>
 
       <div>
         <div className="flex items-center justify-between mb-2.5">
           <h3 className="text-sm font-medium text-zinc-300">
-            Add new rounds
+            Legg til nye runder
           </h3>
           <button
             onClick={onAdd}
@@ -310,13 +307,13 @@ function NewRoundsInput({
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
-            <span className="hidden sm:inline">Add round</span>
+            <span className="hidden sm:inline">Legg til</span>
           </button>
         </div>
 
         {rounds.length === 0 && (
           <p className="text-sm text-zinc-600">
-            Add hypothetical rounds to see how they affect the rating.
+            Legg til hypotetiske runder for å se hvordan de påvirker ratingen.
           </p>
         )}
 
@@ -396,9 +393,9 @@ function simulateRequiredRating(
   refDate: string
 ): PaceResult {
   const labels: Record<number, string> = {
-    5: "Fast",
-    10: "Medium",
-    20: "Steady",
+    5: "Rask",
+    10: "Middels",
+    20: "Jevn",
   };
 
   let lo = 500;
@@ -410,7 +407,7 @@ function simulateRequiredRating(
     const simRounds = [
       ...existingRounds.map((r) => ({ ...r, isNew: false })),
       ...Array.from({ length: newRoundCount }, (_, i) => ({
-        eventName: `Sim round ${i + 1}`,
+        eventName: `Sim. runde ${i + 1}`,
         date: refDate,
         roundRating: mid,
         isNew: true,
@@ -431,7 +428,7 @@ function simulateRequiredRating(
     const simAtMax = [
       ...existingRounds.map((r) => ({ ...r, isNew: false })),
       ...Array.from({ length: newRoundCount }, (_, i) => ({
-        eventName: `Sim round ${i + 1}`,
+        eventName: `Sim. runde ${i + 1}`,
         date: refDate,
         roundRating: 1150,
         isNew: true,
@@ -440,7 +437,7 @@ function simulateRequiredRating(
     const maxResult = calculateRating(simAtMax, { referenceDate: refDate });
 
     return {
-      label: labels[newRoundCount] ?? `${newRoundCount} rounds`,
+      label: labels[newRoundCount] ?? `${newRoundCount} runder`,
       roundCount: newRoundCount,
       requiredAvg: null,
       projectedRating: maxResult.calculatedRating,
@@ -449,7 +446,7 @@ function simulateRequiredRating(
   }
 
   return {
-    label: labels[newRoundCount] ?? `${newRoundCount} rounds`,
+    label: labels[newRoundCount] ?? `${newRoundCount} runder`,
     roundCount: newRoundCount,
     requiredAvg: best,
     projectedRating: targetRating,
@@ -457,21 +454,12 @@ function simulateRequiredRating(
   };
 }
 
-function GoalMode({ playerData }: { playerData: PlayerData | null }) {
+function GoalSection({ playerData }: { playerData: PlayerData }) {
   const [targetRating, setTargetRating] = useState("");
   const [results, setResults] = useState<PaceResult[] | null>(null);
   const [currentRating, setCurrentRating] = useState<number | null>(null);
 
-  if (!playerData) {
-    return (
-      <div className="text-center py-12 text-zinc-500">
-        <p className="text-sm">Fetch a player first from the PDGA Fetch tab.</p>
-      </div>
-    );
-  }
-
   function handleCalculate() {
-    if (!playerData) return;
     const target = parseInt(targetRating, 10);
     if (isNaN(target) || target < 0) return;
 
@@ -498,8 +486,10 @@ function GoalMode({ playerData }: { playerData: PlayerData | null }) {
   }
 
   return (
-    <div className="space-y-5">
-      <PlayerInfo data={playerData} />
+    <div className="space-y-5 border-t border-zinc-800 pt-6">
+      <h3 className="text-sm font-semibold text-zinc-300 uppercase tracking-wide">
+        Målsetting
+      </h3>
 
       <div className="flex gap-3 items-end">
         <div className="flex-1">
@@ -507,7 +497,7 @@ function GoalMode({ playerData }: { playerData: PlayerData | null }) {
             htmlFor="target-rating"
             className="block text-sm font-medium text-zinc-300 mb-1.5"
           >
-            Target rating
+            Målrating
           </label>
           <input
             id="target-rating"
@@ -519,8 +509,8 @@ function GoalMode({ playerData }: { playerData: PlayerData | null }) {
             onKeyDown={(e) => e.key === "Enter" && handleCalculate()}
             placeholder={
               playerData.officialRating
-                ? `e.g. ${playerData.officialRating + 20}`
-                : "e.g. 950"
+                ? `f.eks. ${playerData.officialRating + 20}`
+                : "f.eks. 950"
             }
             className="w-full rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-600 px-3 py-2.5 text-base font-mono focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-zinc-400"
           />
@@ -529,7 +519,7 @@ function GoalMode({ playerData }: { playerData: PlayerData | null }) {
           onClick={handleCalculate}
           className="rounded-lg bg-white text-zinc-900 px-5 py-2.5 text-sm font-semibold hover:bg-zinc-200 active:bg-zinc-300 transition-colors min-h-[44px]"
         >
-          Calculate
+          Beregn
         </button>
       </div>
 
@@ -538,13 +528,13 @@ function GoalMode({ playerData }: { playerData: PlayerData | null }) {
           <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
             <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
               <div>
-                <dt className="text-xs text-zinc-500">Current (projected)</dt>
+                <dt className="text-xs text-zinc-500">Nåværende (beregnet)</dt>
                 <dd className="text-xl font-bold text-zinc-200">
                   {currentRating}
                 </dd>
               </div>
               <div>
-                <dt className="text-xs text-zinc-500">Target</dt>
+                <dt className="text-xs text-zinc-500">Mål</dt>
                 <dd className="text-xl font-bold text-white">
                   {targetRating}
                 </dd>
@@ -563,25 +553,25 @@ function GoalMode({ playerData }: { playerData: PlayerData | null }) {
                     {pace.label}
                   </h3>
                   <p className="text-xs text-zinc-500">
-                    {pace.roundCount} new rounds
+                    {pace.roundCount} nye runder
                   </p>
                 </div>
                 <div className="p-4 space-y-3">
                   {pace.feasible ? (
                     <>
                       <div>
-                        <dt className="text-xs text-zinc-500">Avg rating needed</dt>
+                        <dt className="text-xs text-zinc-500">Snittrating nødvendig</dt>
                         <dd className="text-2xl font-bold text-white font-mono">
                           {pace.requiredAvg}
                         </dd>
                       </div>
                       <div>
-                        <dt className="text-xs text-zinc-500">Difference from current</dt>
+                        <dt className="text-xs text-zinc-500">Forskjell fra nåværende</dt>
                         <dd className="text-sm font-mono text-zinc-300">
                           {pace.requiredAvg !== null &&
                             (pace.requiredAvg > currentRating
-                              ? `+${pace.requiredAvg - currentRating} per round`
-                              : `${pace.requiredAvg - currentRating} per round`)}
+                              ? `+${pace.requiredAvg - currentRating} per runde`
+                              : `${pace.requiredAvg - currentRating} per runde`)}
                         </dd>
                       </div>
                       <RatingBar
@@ -592,9 +582,9 @@ function GoalMode({ playerData }: { playerData: PlayerData | null }) {
                     </>
                   ) : (
                     <div className="text-center py-2">
-                      <p className="text-sm text-zinc-500">Not reachable</p>
+                      <p className="text-sm text-zinc-500">Ikke oppnåelig</p>
                       <p className="text-xs text-zinc-600 mt-1">
-                        Max projected: {pace.projectedRating}
+                        Maks beregnet: {pace.projectedRating}
                       </p>
                     </div>
                   )}
@@ -607,10 +597,10 @@ function GoalMode({ playerData }: { playerData: PlayerData | null }) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-800 bg-zinc-800/50 text-left">
-                  <th className="px-3 py-2 font-medium text-zinc-400">Pace</th>
-                  <th className="px-3 py-2 font-medium text-zinc-400">Rounds</th>
-                  <th className="px-3 py-2 font-medium text-zinc-400">Avg needed</th>
-                  <th className="px-3 py-2 font-medium text-zinc-400">vs Current</th>
+                  <th className="px-3 py-2 font-medium text-zinc-400">Tempo</th>
+                  <th className="px-3 py-2 font-medium text-zinc-400">Runder</th>
+                  <th className="px-3 py-2 font-medium text-zinc-400">Snitt nødv.</th>
+                  <th className="px-3 py-2 font-medium text-zinc-400">vs nåværende</th>
                   <th className="px-3 py-2 font-medium text-zinc-400">Status</th>
                 </tr>
               </thead>
@@ -644,11 +634,11 @@ function GoalMode({ playerData }: { playerData: PlayerData | null }) {
                       <td className="px-3 py-2.5">
                         {pace.feasible ? (
                           <span className="inline-flex items-center rounded-full bg-zinc-700 px-2 py-0.5 text-xs font-medium text-zinc-200">
-                            Reachable
+                            Oppnåelig
                           </span>
                         ) : (
                           <span className="inline-flex items-center rounded-full bg-zinc-800 px-2 py-0.5 text-xs font-medium text-zinc-500">
-                            Out of reach
+                            Utenfor rekkevidde
                           </span>
                         )}
                       </td>
@@ -716,7 +706,7 @@ function ManualMode() {
 
     const today = new Date().toISOString().slice(0, 10);
     const rounds = ratings.map((r, i) => ({
-      eventName: `Round ${i + 1}`,
+      eventName: `Runde ${i + 1}`,
       date: today,
       roundRating: r,
     }));
@@ -731,7 +721,7 @@ function ManualMode() {
           htmlFor="manual-rounds"
           className="block text-sm font-medium text-zinc-300 mb-1.5"
         >
-          Round ratings (one per line, or comma-separated)
+          Runde-ratinger (én per linje, eller kommaseparert)
         </label>
         <textarea
           id="manual-rounds"
@@ -755,19 +745,19 @@ function ManualMode() {
           <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
             <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3">
               <div>
-                <dt className="text-xs text-zinc-500">Calculated Rating</dt>
+                <dt className="text-xs text-zinc-500">Beregnet rating</dt>
                 <dd className="text-2xl font-bold text-white">
                   {result.calculatedRating}
                 </dd>
               </div>
               <div>
-                <dt className="text-xs text-zinc-500">Rounds Used</dt>
+                <dt className="text-xs text-zinc-500">Runder brukt</dt>
                 <dd className="text-2xl font-bold text-white">{result.roundsUsed}</dd>
               </div>
               <div>
-                <dt className="text-xs text-zinc-500">Window</dt>
+                <dt className="text-xs text-zinc-500">Vindu</dt>
                 <dd className="text-2xl font-bold text-white">
-                  {result.windowMonths} mo
+                  {result.windowMonths} mnd
                 </dd>
               </div>
             </dl>
@@ -783,26 +773,41 @@ function ManualMode() {
 function PlayerInfo({ data }: { data: PlayerData }) {
   return (
     <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
-      <div className="flex items-baseline gap-3 flex-wrap">
-        <a
-          href={`https://www.pdga.com/player/${data.pdgaNumber}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-lg font-semibold text-white hover:text-zinc-300 hover:underline transition-colors"
-        >
-          {data.playerName}
-        </a>
-        <span className="text-sm text-zinc-500">#{data.pdgaNumber}</span>
+      <div className="flex items-center gap-4">
+        {data.profileImageUrl ? (
+          <img
+            src={data.profileImageUrl}
+            alt={data.playerName}
+            className="w-16 h-16 rounded-full object-cover flex-shrink-0 border-2 border-zinc-700"
+          />
+        ) : (
+          <div className="w-16 h-16 rounded-full bg-zinc-800 flex-shrink-0 border-2 border-zinc-700 flex items-center justify-center text-zinc-500 text-xl font-bold">
+            {data.playerName.charAt(0)}
+          </div>
+        )}
+        <div className="min-w-0">
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <a
+              href={`https://www.pdga.com/player/${data.pdgaNumber}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-lg font-semibold text-white hover:text-zinc-300 hover:underline transition-colors"
+            >
+              {data.playerName}
+            </a>
+            <span className="text-sm text-zinc-500">#{data.pdgaNumber}</span>
+          </div>
+          {data.officialRating && (
+            <p className="mt-0.5 text-sm text-zinc-400">
+              Offisiell rating:{" "}
+              <span className="font-semibold text-zinc-200">{data.officialRating}</span>
+            </p>
+          )}
+          <p className="text-sm text-zinc-500">
+            {data.rounds.length} ratede runder funnet
+          </p>
+        </div>
       </div>
-      {data.officialRating && (
-        <p className="mt-1 text-sm text-zinc-400">
-          Official rating:{" "}
-          <span className="font-semibold text-zinc-200">{data.officialRating}</span>
-        </p>
-      )}
-      <p className="text-sm text-zinc-500">
-        {data.rounds.length} rated rounds found
-      </p>
     </div>
   );
 }
@@ -823,19 +828,19 @@ function ResultSummary({
     <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
       <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
         <div>
-          <dt className="text-xs text-zinc-500">Official</dt>
+          <dt className="text-xs text-zinc-500">Offisiell</dt>
           <dd className="text-xl sm:text-2xl font-bold text-zinc-200">
             {playerData.officialRating ?? "N/A"}
           </dd>
         </div>
         <div>
-          <dt className="text-xs text-zinc-500">Calculated</dt>
+          <dt className="text-xs text-zinc-500">Beregnet</dt>
           <dd className="text-xl sm:text-2xl font-bold text-white">
             {result.calculatedRating}
           </dd>
         </div>
         <div>
-          <dt className="text-xs text-zinc-500">Difference</dt>
+          <dt className="text-xs text-zinc-500">Differanse</dt>
           <dd
             className={`text-xl sm:text-2xl font-bold ${
               diff != null && diff > 0
@@ -849,7 +854,7 @@ function ResultSummary({
           </dd>
         </div>
         <div>
-          <dt className="text-xs text-zinc-500">Rounds</dt>
+          <dt className="text-xs text-zinc-500">Runder</dt>
           <dd className="text-xl sm:text-2xl font-bold text-zinc-200">
             {result.roundsUsed}
             <span className="text-sm font-normal text-zinc-600">
@@ -861,8 +866,8 @@ function ResultSummary({
       </dl>
       {result.windowMonths > 12 && (
         <p className="mt-3 text-xs text-zinc-500">
-          Extended window to {result.windowMonths} months (fewer than 8 rounds
-          in 12 months)
+          Utvidet vindu til {result.windowMonths} måneder (færre enn 8 runder
+          innen 12 måneder)
         </p>
       )}
     </div>
@@ -882,12 +887,12 @@ function RoundsTable({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-zinc-800 bg-zinc-800/50 text-left">
-              <th className="px-3 py-2 font-medium text-zinc-400">Event</th>
-              <th className="px-3 py-2 font-medium text-zinc-400">Date</th>
+              <th className="px-3 py-2 font-medium text-zinc-400">Turnering</th>
+              <th className="px-3 py-2 font-medium text-zinc-400">Dato</th>
               <th className="px-3 py-2 font-medium text-zinc-400">Rating</th>
               <th className="px-3 py-2 font-medium text-zinc-400 hidden sm:table-cell">Tier</th>
               <th className="px-3 py-2 font-medium text-zinc-400 hidden sm:table-cell">Eval</th>
-              <th className="px-3 py-2 font-medium text-zinc-400 hidden sm:table-cell">Incl</th>
+              <th className="px-3 py-2 font-medium text-zinc-400 hidden sm:table-cell">Inkl</th>
             </tr>
           </thead>
           <tbody>
@@ -897,8 +902,8 @@ function RoundsTable({
                 <td className="px-3 py-2 whitespace-nowrap text-zinc-400">{r.date}</td>
                 <td className="px-3 py-2 font-mono">{r.roundRating}</td>
                 <td className="px-3 py-2 hidden sm:table-cell text-zinc-400">{r.tier}</td>
-                <td className="px-3 py-2 hidden sm:table-cell text-zinc-400">{r.evaluated ? "Yes" : "No"}</td>
-                <td className="px-3 py-2 hidden sm:table-cell text-zinc-400">{r.included ? "Yes" : "No"}</td>
+                <td className="px-3 py-2 hidden sm:table-cell text-zinc-400">{r.evaluated ? "Ja" : "Nei"}</td>
+                <td className="px-3 py-2 hidden sm:table-cell text-zinc-400">{r.included ? "Ja" : "Nei"}</td>
               </tr>
             ))}
           </tbody>
@@ -909,37 +914,37 @@ function RoundsTable({
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-medium text-zinc-400">Round Details</h3>
+      <h3 className="text-sm font-medium text-zinc-400">Rundedetaljer</h3>
       <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-zinc-500">
         <span className="flex items-center gap-1">
           <span className="inline-block w-3 h-3 rounded-sm bg-zinc-700 border border-zinc-500" />
-          In window
+          I vindu
         </span>
         <span className="flex items-center gap-1">
           <span className="inline-block w-3 h-3 rounded-sm bg-zinc-600 border border-zinc-400" />
-          Double weighted
+          Dobbelvektet
         </span>
         <span className="flex items-center gap-1">
           <span className="inline-block w-3 h-3 rounded-sm bg-zinc-800 border border-zinc-600" />
-          Outlier
+          Avvik
         </span>
         <span className="flex items-center gap-1">
           <span className="inline-block w-3 h-3 rounded-sm bg-zinc-900 border border-zinc-700" />
-          New round
+          Ny runde
         </span>
         <span className="flex items-center gap-1">
           <span className="inline-block w-3 h-3 rounded-sm bg-zinc-900 border border-zinc-800" />
-          Outside window
+          Utenfor vindu
         </span>
       </div>
       <div className="overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-900">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-zinc-800 bg-zinc-800/50 text-left">
-              <th className="px-3 py-2 font-medium text-zinc-400">Event</th>
-              <th className="px-3 py-2 font-medium text-zinc-400">Date</th>
+              <th className="px-3 py-2 font-medium text-zinc-400">Turnering</th>
+              <th className="px-3 py-2 font-medium text-zinc-400">Dato</th>
               <th className="px-3 py-2 font-medium text-zinc-400">Rating</th>
-              <th className="px-3 py-2 font-medium text-zinc-400">Wt</th>
+              <th className="px-3 py-2 font-medium text-zinc-400">Vekt</th>
               <th className="px-3 py-2 font-medium text-zinc-400">Status</th>
             </tr>
           </thead>
@@ -986,11 +991,11 @@ function ManualRoundsTable({ rounds }: { rounds: CalculatedRound[] }) {
       <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-zinc-500">
         <span className="flex items-center gap-1">
           <span className="inline-block w-3 h-3 rounded-sm bg-zinc-600 border border-zinc-400" />
-          Double weighted
+          Dobbelvektet
         </span>
         <span className="flex items-center gap-1">
           <span className="inline-block w-3 h-3 rounded-sm bg-zinc-800 border border-zinc-600" />
-          Outlier
+          Avvik
         </span>
       </div>
       <div className="overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-900">
@@ -999,7 +1004,7 @@ function ManualRoundsTable({ rounds }: { rounds: CalculatedRound[] }) {
             <tr className="border-b border-zinc-800 bg-zinc-800/50 text-left">
               <th className="px-3 py-2 font-medium text-zinc-400">#</th>
               <th className="px-3 py-2 font-medium text-zinc-400">Rating</th>
-              <th className="px-3 py-2 font-medium text-zinc-400">Wt</th>
+              <th className="px-3 py-2 font-medium text-zinc-400">Vekt</th>
               <th className="px-3 py-2 font-medium text-zinc-400">Status</th>
             </tr>
           </thead>
@@ -1042,19 +1047,19 @@ function StatusBadge({ round }: { round: CalculatedRound }) {
   if (round.isOutlier) {
     return (
       <span className="inline-flex items-center rounded-full bg-zinc-800 px-2 py-0.5 text-xs font-medium text-zinc-500">
-        Outlier
+        Avvik
       </span>
     );
   }
   if (!round.inWindow) {
     return (
       <span className="inline-flex items-center rounded-full bg-zinc-800 px-2 py-0.5 text-xs font-medium text-zinc-600">
-        Outside
+        Utenfor
       </span>
     );
   }
   if (round.isNew) {
-    const label = round.isDoubleWeighted ? "New 2x" : "New";
+    const label = round.isDoubleWeighted ? "Ny 2x" : "Ny";
     return (
       <span className="inline-flex items-center rounded-full bg-zinc-700 px-2 py-0.5 text-xs font-medium text-zinc-200">
         {label}
@@ -1070,7 +1075,7 @@ function StatusBadge({ round }: { round: CalculatedRound }) {
   }
   return (
     <span className="inline-flex items-center rounded-full bg-zinc-700 px-2 py-0.5 text-xs font-medium text-zinc-300">
-      Included
+      Inkludert
     </span>
   );
 }
@@ -1079,11 +1084,11 @@ function ErrorMessage({ message }: { message: string }) {
   return (
     <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
       <p className="text-sm text-zinc-300">
-        <span className="font-semibold text-white">Error:</span> {message}
+        <span className="font-semibold text-white">Feil:</span> {message}
       </p>
       <p className="mt-1 text-xs text-zinc-500">
-        Try checking the PDGA number, or use Manual mode to enter rounds
-        directly.
+        Sjekk PDGA-nummeret, eller bruk manuell modus for å legge inn runder
+        direkte.
       </p>
     </div>
   );

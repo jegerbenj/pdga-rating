@@ -19,6 +19,7 @@ export interface PlayerData {
   playerName: string;
   pdgaNumber: number;
   officialRating: number | null;
+  profileImageUrl: string | null;
   rounds: RoundData[];
   ratingsHistory: RatingsHistoryEntry[];
 }

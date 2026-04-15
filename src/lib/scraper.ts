@@ -40,6 +40,12 @@ function extractPlayerName(html: string): string {
   return match ? match[1].trim() : h1;
 }
 
+function extractProfileImage(html: string): string | null {
+  const $ = cheerio.load(html);
+  const img = $('img[typeof="foaf:Image"]').first();
+  return img.length > 0 ? img.attr("src") || null : null;
+}
+
 function parseDetailsTable(html: string): RoundData[] {
   const $ = cheerio.load(html);
   const rounds: RoundData[] = [];
@@ -137,6 +143,7 @@ export async function scrapePlayer(pdgaNumber: number): Promise<PlayerData> {
     throw new Error("Could not parse player name from PDGA page.");
   }
 
+  const profileImageUrl = extractProfileImage(detailsHtml);
   const rounds = parseDetailsTable(detailsHtml);
   const ratingsHistory = parseRatingsHistory(historyHtml);
 
@@ -147,6 +154,7 @@ export async function scrapePlayer(pdgaNumber: number): Promise<PlayerData> {
     playerName,
     pdgaNumber,
     officialRating,
+    profileImageUrl,
     rounds,
     ratingsHistory,
   };

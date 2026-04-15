@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PDGA Rating Calculator",
-  description: "Calculate your PDGA player rating from rated rounds",
+  title: "PDGA Rating-kalkulator",
+  description: "Beregn din PDGA-rating fra ratede runder basert på PDGA-regler",
 };
 
 export default function RootLayout({
@@ -24,7 +24,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="no"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
