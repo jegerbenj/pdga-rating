@@ -604,114 +604,159 @@ function GoalSection({ playerData }: { playerData: PlayerData }) {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
-            {results.map((pace) => (
-              <div
-                key={pace.roundCount}
-                className="rounded-lg border border-zinc-800 bg-zinc-900 overflow-hidden"
-              >
-                <div className="px-4 py-3 border-b border-zinc-800 bg-zinc-800/50">
-                  <h3 className="text-sm font-semibold text-white">
-                    {pace.label}
-                  </h3>
-                  <p className="text-xs text-zinc-500">
-                    {pace.roundCount} nye runder
-                  </p>
-                </div>
-                <div className="p-4 space-y-3">
-                  {pace.feasible ? (
-                    <>
-                      <div>
-                        <dt className="text-xs text-zinc-500">Snittrating nødvendig</dt>
-                        <dd className="text-2xl font-bold text-white font-mono">
-                          {pace.requiredAvg}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs text-zinc-500">Forskjell fra nåværende</dt>
-                        <dd className="text-sm font-mono text-zinc-300">
-                          {pace.requiredAvg !== null &&
-                            (pace.requiredAvg > currentRating
-                              ? `+${pace.requiredAvg - currentRating} per runde`
-                              : `${pace.requiredAvg - currentRating} per runde`)}
-                        </dd>
-                      </div>
-                      <RatingBar
-                        current={currentRating}
-                        required={pace.requiredAvg!}
-                        target={parseInt(targetRating, 10)}
-                      />
-                    </>
-                  ) : (
-                    <div className="text-center py-2">
-                      <p className="text-sm text-zinc-500">Ikke oppnåelig</p>
-                      <p className="text-xs text-zinc-600 mt-1">
-                        Maks beregnet: {pace.projectedRating}
+            {results.map((pace) => {
+              const diff =
+                pace.requiredAvg !== null
+                  ? pace.requiredAvg - currentRating
+                  : null;
+              const tier = getDifficultyTier(diff, pace.feasible);
+              const borderColor =
+                tier === "easy"
+                  ? "border-emerald-800/60"
+                  : tier === "hard"
+                    ? "border-amber-800/50"
+                    : "border-red-900/40";
+
+              return (
+                <div
+                  key={pace.roundCount}
+                  className={`rounded-lg border bg-zinc-900 overflow-hidden ${borderColor}`}
+                >
+                  <div className="px-4 py-3 border-b border-zinc-800 bg-zinc-800/50 flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-semibold text-white">
+                        {pace.label}
+                      </h3>
+                      <p className="text-xs text-zinc-500">
+                        {pace.roundCount} nye runder
                       </p>
                     </div>
-                  )}
+                    <DifficultyBadge tier={tier} />
+                  </div>
+                  <div className="p-4 space-y-3">
+                    {pace.feasible ? (
+                      <>
+                        <div>
+                          <dt className="text-xs text-zinc-500">Snittrating nødvendig</dt>
+                          <dd className="text-2xl font-bold text-white font-mono">
+                            {pace.requiredAvg}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs text-zinc-500">Forskjell fra nåværende</dt>
+                          <dd className="text-sm font-mono text-zinc-300">
+                            {diff !== null &&
+                              (diff > 0
+                                ? `+${diff} per runde`
+                                : `${diff} per runde`)}
+                          </dd>
+                        </div>
+                        <RatingBar
+                          current={currentRating}
+                          required={pace.requiredAvg!}
+                          target={parseInt(targetRating, 10)}
+                        />
+                      </>
+                    ) : (
+                      <div className="text-center py-2">
+                        <p className="text-sm text-red-400/80">Uoppnåelig</p>
+                        <p className="text-xs text-zinc-600 mt-1">
+                          Maks beregnet: {pace.projectedRating}
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
-          <div className="overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-900">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-zinc-800 bg-zinc-800/50 text-left">
-                  <th className="px-3 py-2 font-medium text-zinc-400">Tempo</th>
-                  <th className="px-3 py-2 font-medium text-zinc-400">Runder</th>
-                  <th className="px-3 py-2 font-medium text-zinc-400">Snitt nødv.</th>
-                  <th className="px-3 py-2 font-medium text-zinc-400">vs nåværende</th>
-                  <th className="px-3 py-2 font-medium text-zinc-400">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {results.map((pace) => {
-                  const diff =
-                    pace.requiredAvg !== null
-                      ? pace.requiredAvg - currentRating
-                      : null;
-                  return (
-                    <tr
-                      key={pace.roundCount}
-                      className="border-b border-zinc-800/50 last:border-0"
-                    >
-                      <td className="px-3 py-2.5 font-medium text-zinc-300">
-                        {pace.label}
-                      </td>
-                      <td className="px-3 py-2.5 font-mono text-zinc-400">
-                        {pace.roundCount}
-                      </td>
-                      <td className="px-3 py-2.5 font-mono text-white font-semibold">
-                        {pace.feasible ? pace.requiredAvg : "—"}
-                      </td>
-                      <td className="px-3 py-2.5 font-mono text-zinc-400">
-                        {diff !== null
-                          ? diff > 0
-                            ? `+${diff}`
-                            : `${diff}`
-                          : "—"}
-                      </td>
-                      <td className="px-3 py-2.5">
-                        {pace.feasible ? (
-                          <span className="inline-flex items-center rounded-full bg-zinc-700 px-2 py-0.5 text-xs font-medium text-zinc-200">
-                            Oppnåelig
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center rounded-full bg-zinc-800 px-2 py-0.5 text-xs font-medium text-zinc-500">
-                            Utenfor rekkevidde
-                          </span>
-                        )}
-                      </td>
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+            <div className="min-w-[480px] sm:min-w-0 px-4 sm:px-0">
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-zinc-800 bg-zinc-800/50 text-left">
+                      <th className="px-3 py-2 font-medium text-zinc-400">Tempo</th>
+                      <th className="px-3 py-2 font-medium text-zinc-400">Runder</th>
+                      <th className="px-3 py-2 font-medium text-zinc-400">Snitt nødv.</th>
+                      <th className="px-3 py-2 font-medium text-zinc-400">vs nåværende</th>
+                      <th className="px-3 py-2 font-medium text-zinc-400">Status</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody>
+                    {results.map((pace) => {
+                      const diff =
+                        pace.requiredAvg !== null
+                          ? pace.requiredAvg - currentRating
+                          : null;
+                      const tier = getDifficultyTier(diff, pace.feasible);
+                      return (
+                        <tr
+                          key={pace.roundCount}
+                          className="border-b border-zinc-800/50 last:border-0"
+                        >
+                          <td className="px-3 py-2.5 font-medium text-zinc-300">
+                            {pace.label}
+                          </td>
+                          <td className="px-3 py-2.5 font-mono text-zinc-400">
+                            {pace.roundCount}
+                          </td>
+                          <td className="px-3 py-2.5 font-mono text-white font-semibold">
+                            {pace.feasible ? pace.requiredAvg : "—"}
+                          </td>
+                          <td className="px-3 py-2.5 font-mono text-zinc-400">
+                            {diff !== null
+                              ? diff > 0
+                                ? `+${diff}`
+                                : `${diff}`
+                              : "—"}
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <DifficultyBadge tier={tier} />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
       )}
     </div>
+  );
+}
+
+type DifficultyTier = "easy" | "hard" | "unreachable";
+
+function getDifficultyTier(diff: number | null, feasible: boolean): DifficultyTier {
+  if (!feasible || diff === null) return "unreachable";
+  if (diff >= 130) return "unreachable";
+  if (diff >= 70) return "hard";
+  return "easy";
+}
+
+function DifficultyBadge({ tier }: { tier: DifficultyTier }) {
+  if (tier === "easy") {
+    return (
+      <span className="inline-flex items-center rounded-full bg-emerald-900/60 px-2 py-0.5 text-xs font-medium text-emerald-300">
+        Oppnåelig
+      </span>
+    );
+  }
+  if (tier === "hard") {
+    return (
+      <span className="inline-flex items-center rounded-full bg-amber-900/50 px-2 py-0.5 text-xs font-medium text-amber-300">
+        Vanskelig
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center rounded-full bg-red-900/40 px-2 py-0.5 text-xs font-medium text-red-400">
+      Uoppnåelig
+    </span>
   );
 }
 
@@ -935,6 +980,8 @@ function ResultSummary({
   );
 }
 
+const ROUNDS_LIMIT = 40;
+
 function RoundsTable({
   rounds,
   allRounds,
@@ -942,47 +989,71 @@ function RoundsTable({
   rounds: CalculatedRound[] | null;
   allRounds: PlayerData["rounds"];
 }) {
+  const [expanded, setExpanded] = useState(false);
+
   if (!rounds) {
+    const visible = expanded ? allRounds : allRounds.slice(0, ROUNDS_LIMIT);
+    const hasMore = allRounds.length > ROUNDS_LIMIT;
+
     return (
-      <div className="overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-900">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-zinc-800 bg-zinc-800/50 text-left">
-              <th className="px-3 py-2 font-medium text-zinc-400">Turnering</th>
-              <th className="px-3 py-2 font-medium text-zinc-400">Dato</th>
-              <th className="px-3 py-2 font-medium text-zinc-400">Rating</th>
-              <th className="px-3 py-2 font-medium text-zinc-400 hidden sm:table-cell">Tier</th>
-              <th className="px-3 py-2 font-medium text-zinc-400 hidden sm:table-cell">Eval</th>
-              <th className="px-3 py-2 font-medium text-zinc-400 hidden sm:table-cell">Inkl</th>
-            </tr>
-          </thead>
-          <tbody>
-            {allRounds.map((r, i) => (
-              <tr key={i} className="border-b border-zinc-800/50 last:border-0 text-zinc-300">
-                <td className="px-3 py-2 max-w-[150px] sm:max-w-none truncate">{r.eventName}</td>
-                <td className="px-3 py-2 whitespace-nowrap text-zinc-400">{r.date}</td>
-                <td className="px-3 py-2 font-mono">{r.roundRating}</td>
-                <td className="px-3 py-2 hidden sm:table-cell text-zinc-400">{r.tier}</td>
-                <td className="px-3 py-2 hidden sm:table-cell text-zinc-400">{r.evaluated ? "Ja" : "Nei"}</td>
-                <td className="px-3 py-2 hidden sm:table-cell text-zinc-400">{r.included ? "Ja" : "Nei"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="space-y-2">
+        <div className="overflow-x-auto -mx-4 sm:mx-0">
+          <div className="min-w-[500px] sm:min-w-0 px-4 sm:px-0">
+            <div className="rounded-lg border border-zinc-800 bg-zinc-900">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-800 bg-zinc-800/50 text-left">
+                    <th className="px-3 py-2 font-medium text-zinc-400">Turnering</th>
+                    <th className="px-3 py-2 font-medium text-zinc-400">Dato</th>
+                    <th className="px-3 py-2 font-medium text-zinc-400">Rating</th>
+                    <th className="px-3 py-2 font-medium text-zinc-400 hidden sm:table-cell">Tier</th>
+                    <th className="px-3 py-2 font-medium text-zinc-400 hidden sm:table-cell">Eval</th>
+                    <th className="px-3 py-2 font-medium text-zinc-400 hidden sm:table-cell">Inkl</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visible.map((r, i) => (
+                    <tr key={i} className="border-b border-zinc-800/50 last:border-0 text-zinc-300">
+                      <td className="px-3 py-2 max-w-[150px] sm:max-w-none truncate">{r.eventName}</td>
+                      <td className="px-3 py-2 whitespace-nowrap text-zinc-400">{r.date}</td>
+                      <td className="px-3 py-2 font-mono">{r.roundRating}</td>
+                      <td className="px-3 py-2 hidden sm:table-cell text-zinc-400">{r.tier}</td>
+                      <td className="px-3 py-2 hidden sm:table-cell text-zinc-400">{r.evaluated ? "Ja" : "Nei"}</td>
+                      <td className="px-3 py-2 hidden sm:table-cell text-zinc-400">{r.included ? "Ja" : "Nei"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        {hasMore && (
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="w-full text-center text-sm text-zinc-400 hover:text-zinc-200 py-2 transition-colors cursor-pointer"
+          >
+            {expanded
+              ? "Vis færre"
+              : `Vis alle ${allRounds.length} runder (${allRounds.length - ROUNDS_LIMIT} til)`}
+          </button>
+        )}
       </div>
     );
   }
+
+  const visible = expanded ? rounds : rounds.slice(0, ROUNDS_LIMIT);
+  const hasMore = rounds.length > ROUNDS_LIMIT;
 
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-medium text-zinc-400">Rundedetaljer</h3>
       <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-zinc-500">
         <span className="flex items-center gap-1">
-          <span className="inline-block w-3 h-3 rounded-sm bg-zinc-700 border border-zinc-500" />
+          <span className="inline-block w-3 h-3 rounded-sm bg-emerald-900/60 border border-emerald-700/50" />
           I vindu
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block w-3 h-3 rounded-sm bg-zinc-600 border border-zinc-400" />
+          <span className="inline-block w-3 h-3 rounded-sm bg-emerald-800/50 border border-emerald-600/50" />
           Dobbelvektet
         </span>
         <span className="flex items-center gap-1">
@@ -990,7 +1061,7 @@ function RoundsTable({
           Avvik
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block w-3 h-3 rounded-sm bg-zinc-900 border border-zinc-700" />
+          <span className="inline-block w-3 h-3 rounded-sm bg-sky-900/40 border border-sky-700/40" />
           Ny runde
         </span>
         <span className="flex items-center gap-1">
@@ -998,50 +1069,64 @@ function RoundsTable({
           Utenfor vindu
         </span>
       </div>
-      <div className="overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-900">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-zinc-800 bg-zinc-800/50 text-left">
-              <th className="px-3 py-2 font-medium text-zinc-400">Turnering</th>
-              <th className="px-3 py-2 font-medium text-zinc-400">Dato</th>
-              <th className="px-3 py-2 font-medium text-zinc-400">Rating</th>
-              <th className="px-3 py-2 font-medium text-zinc-400">Vekt</th>
-              <th className="px-3 py-2 font-medium text-zinc-400">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rounds.map((r, i) => (
-              <tr
-                key={i}
-                className={`border-b border-zinc-800/50 last:border-0 ${rowColor(r)}`}
-              >
-                <td
-                  className={`px-3 py-2.5 max-w-[120px] sm:max-w-none truncate ${
-                    r.isOutlier ? "line-through text-zinc-600" : "text-zinc-300"
-                  }`}
-                >
-                  {r.isNew && (
-                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-zinc-400 mr-1.5 align-middle" />
-                  )}
-                  {r.eventName}
-                </td>
-                <td className="px-3 py-2.5 whitespace-nowrap text-zinc-500">{r.date}</td>
-                <td
-                  className={`px-3 py-2.5 font-mono ${
-                    r.isDoubleWeighted ? "font-bold text-white" : "text-zinc-300"
-                  }`}
-                >
-                  {r.roundRating}
-                </td>
-                <td className="px-3 py-2.5 font-mono text-zinc-500">{r.weight}x</td>
-                <td className="px-3 py-2.5">
-                  <StatusBadge round={r} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="overflow-x-auto -mx-4 sm:mx-0">
+        <div className="min-w-[500px] sm:min-w-0 px-4 sm:px-0">
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-zinc-800 bg-zinc-800/50 text-left">
+                  <th className="px-3 py-2 font-medium text-zinc-400">Turnering</th>
+                  <th className="px-3 py-2 font-medium text-zinc-400">Dato</th>
+                  <th className="px-3 py-2 font-medium text-zinc-400">Rating</th>
+                  <th className="px-3 py-2 font-medium text-zinc-400">Vekt</th>
+                  <th className="px-3 py-2 font-medium text-zinc-400">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map((r, i) => (
+                  <tr
+                    key={i}
+                    className={`border-b border-zinc-800/50 last:border-0 ${rowColor(r)}`}
+                  >
+                    <td
+                      className={`px-3 py-2.5 max-w-[120px] sm:max-w-none truncate ${
+                        r.isOutlier ? "line-through text-zinc-600" : "text-zinc-300"
+                      }`}
+                    >
+                      {r.isNew && (
+                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-sky-400 mr-1.5 align-middle" />
+                      )}
+                      {r.eventName}
+                    </td>
+                    <td className="px-3 py-2.5 whitespace-nowrap text-zinc-500">{r.date}</td>
+                    <td
+                      className={`px-3 py-2.5 font-mono ${
+                        r.isDoubleWeighted ? "font-bold text-white" : "text-zinc-300"
+                      }`}
+                    >
+                      {r.roundRating}
+                    </td>
+                    <td className="px-3 py-2.5 font-mono text-zinc-500">{r.weight}x</td>
+                    <td className="px-3 py-2.5">
+                      <StatusBadge round={r} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
+      {hasMore && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="w-full text-center text-sm text-zinc-400 hover:text-zinc-200 py-2 transition-colors cursor-pointer"
+        >
+          {expanded
+            ? "Vis færre"
+            : `Vis alle ${rounds.length} runder (${rounds.length - ROUNDS_LIMIT} til)`}
+        </button>
+      )}
     </div>
   );
 }
@@ -1098,16 +1183,17 @@ function ManualRoundsTable({ rounds }: { rounds: CalculatedRound[] }) {
 
 function rowColor(r: CalculatedRound): string {
   if (r.isOutlier) return "bg-zinc-950";
-  if (r.isNew && r.inWindow) return "bg-zinc-800/40";
-  if (r.isDoubleWeighted) return "bg-zinc-800/60";
+  if (r.isNew && r.inWindow) return "bg-sky-950/30";
+  if (r.isDoubleWeighted) return "bg-emerald-950/40";
   if (!r.inWindow) return "bg-zinc-950/50";
+  if (r.inWindow) return "bg-emerald-950/20";
   return "bg-zinc-900";
 }
 
 function StatusBadge({ round }: { round: CalculatedRound }) {
   if (round.isOutlier) {
     return (
-      <span className="inline-flex items-center rounded-full bg-zinc-800 px-2 py-0.5 text-xs font-medium text-zinc-500">
+      <span className="inline-flex items-center rounded-full bg-red-900/40 px-2 py-0.5 text-xs font-medium text-red-400">
         Avvik
       </span>
     );
@@ -1122,20 +1208,20 @@ function StatusBadge({ round }: { round: CalculatedRound }) {
   if (round.isNew) {
     const label = round.isDoubleWeighted ? "Ny 2x" : "Ny";
     return (
-      <span className="inline-flex items-center rounded-full bg-zinc-700 px-2 py-0.5 text-xs font-medium text-zinc-200">
+      <span className="inline-flex items-center rounded-full bg-sky-900/50 px-2 py-0.5 text-xs font-medium text-sky-300">
         {label}
       </span>
     );
   }
   if (round.isDoubleWeighted) {
     return (
-      <span className="inline-flex items-center rounded-full bg-zinc-600 px-2 py-0.5 text-xs font-medium text-white">
+      <span className="inline-flex items-center rounded-full bg-emerald-900/50 px-2 py-0.5 text-xs font-medium text-emerald-300">
         2x
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center rounded-full bg-zinc-700 px-2 py-0.5 text-xs font-medium text-zinc-300">
+    <span className="inline-flex items-center rounded-full bg-emerald-900/30 px-2 py-0.5 text-xs font-medium text-emerald-400/80">
       Inkludert
     </span>
   );
