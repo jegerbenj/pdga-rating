@@ -1,12 +1,285 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, createContext, useContext } from "react";
 import type {
   PlayerData,
   CalculationResult,
   CalculatedRound,
 } from "@/lib/types";
 import { calculateRating } from "@/lib/rating-calculator";
+
+// ─── Language system ──────────────────────────────────────────────────────────
+
+type Lang = "no" | "en";
+
+interface Translations {
+  title: string;
+  subtitle: string;
+  tabFetch: string;
+  tabManual: string;
+  pdgaNumberLabel: string;
+  pdgaPlaceholder: string;
+  fetchButton: string;
+  fetchingButton: string;
+  errorInvalidNumber: string;
+  errorFetch: string;
+  errorNetwork: string;
+  subTabCalculate: string;
+  subTabGoal: string;
+  officialRating: string;
+  roundsFound: string;
+  nextUpdateLabel: string;
+  nextUpdateHint: string;
+  windowHint: string;
+  addNewRounds: string;
+  addRound: string;
+  noRoundsHint: string;
+  ratingPlaceholder: string;
+  calculateButton: string;
+  official: string;
+  calculated: string;
+  difference: string;
+  rounds: string;
+  extendedWindow: (months: number) => string;
+  months: string;
+  colTournament: string;
+  colDate: string;
+  colRating: string;
+  colTier: string;
+  colEval: string;
+  colIncl: string;
+  yes: string;
+  no: string;
+  showAll: (total: number, more: number) => string;
+  showFewer: string;
+  roundDetails: string;
+  legendInWindow: string;
+  legendDoubleWeighted: string;
+  legendOutlier: string;
+  legendNewRound: string;
+  legendOutsideWindow: string;
+  colWeight: string;
+  colStatus: string;
+  badgeOutlier: string;
+  badgeOutside: string;
+  badgeNew2x: string;
+  badgeNew: string;
+  badgeIncluded: string;
+  targetRatingLabel: string;
+  examplePrefix: string;
+  calculateGoalButton: string;
+  currentProjected: string;
+  target: string;
+  newRoundsUnit: string;
+  avgNeeded: string;
+  diffFromCurrent: string;
+  perRound: string;
+  notReachable: string;
+  maxProjected: string;
+  colPace: string;
+  colRounds: string;
+  colAvgNeeded: string;
+  colVsCurrent: string;
+  badgeAchievable: string;
+  badgeDifficult: string;
+  badgeUnreachable: string;
+  paceFast: string;
+  paceMedium: string;
+  paceSteady: string;
+  paceRoundsLabel: (n: number) => string;
+  manualInputLabel: string;
+  calculatedRatingLabel: string;
+  roundsUsedLabel: string;
+  windowLabel: string;
+  errorPrefix: string;
+  errorHint: string;
+  footerAttribution: string;
+  newRoundEventName: string;
+  simRoundName: (n: number) => string;
+  manualRoundName: (n: number) => string;
+}
+
+const translations: Record<Lang, Translations> = {
+  no: {
+    title: "PDGA Rating-kalkulator",
+    subtitle: "Beregn rating fra ratede runder basert på PDGA-regler",
+    tabFetch: "PDGA-søk",
+    tabManual: "Manuell",
+    pdgaNumberLabel: "PDGA-nummer",
+    pdgaPlaceholder: "f.eks. 281989",
+    fetchButton: "Hent runder",
+    fetchingButton: "Henter...",
+    errorInvalidNumber: "Vennligst oppgi et gyldig PDGA-nummer.",
+    errorFetch: "Kunne ikke hente spillerdata.",
+    errorNetwork: "Nettverksfeil. Kunne ikke nå serveren.",
+    subTabCalculate: "Beregn rating",
+    subTabGoal: "Målsetting",
+    officialRating: "Offisiell rating",
+    roundsFound: "ratede runder funnet",
+    nextUpdateLabel: "Neste ratingoppdatering",
+    nextUpdateHint: "(annenhver tirsdag hver måned)",
+    windowHint: "365-dagers vinduet beregnes tilbake fra denne datoen.",
+    addNewRounds: "Legg til nye runder",
+    addRound: "Legg til",
+    noRoundsHint: "Legg til hypotetiske runder for å se hvordan de påvirker ratingen.",
+    ratingPlaceholder: "Rating",
+    calculateButton: "Beregn rating",
+    official: "Offisiell",
+    calculated: "Beregnet",
+    difference: "Differanse",
+    rounds: "Runder",
+    extendedWindow: (m) => `Utvidet vindu til ${m} måneder (færre enn 8 runder innen 12 måneder)`,
+    months: "mnd",
+    colTournament: "Turnering",
+    colDate: "Dato",
+    colRating: "Rating",
+    colTier: "Tier",
+    colEval: "Eval",
+    colIncl: "Inkl",
+    yes: "Ja",
+    no: "Nei",
+    showAll: (total, more) => `Vis alle ${total} runder (${more} til)`,
+    showFewer: "Vis færre",
+    roundDetails: "Rundedetaljer",
+    legendInWindow: "I vindu",
+    legendDoubleWeighted: "Dobbelvektet",
+    legendOutlier: "Avvik",
+    legendNewRound: "Ny runde",
+    legendOutsideWindow: "Utenfor vindu",
+    colWeight: "Vekt",
+    colStatus: "Status",
+    badgeOutlier: "Avvik",
+    badgeOutside: "Utenfor",
+    badgeNew2x: "Ny 2x",
+    badgeNew: "Ny",
+    badgeIncluded: "Inkludert",
+    targetRatingLabel: "Målrating",
+    examplePrefix: "f.eks.",
+    calculateGoalButton: "Beregn",
+    currentProjected: "Nåværende (beregnet)",
+    target: "Mål",
+    newRoundsUnit: "nye runder",
+    avgNeeded: "Snittrating nødvendig",
+    diffFromCurrent: "Forskjell fra nåværende",
+    perRound: "per runde",
+    notReachable: "Uoppnåelig",
+    maxProjected: "Maks beregnet:",
+    colPace: "Tempo",
+    colRounds: "Runder",
+    colAvgNeeded: "Snitt nødv.",
+    colVsCurrent: "vs nåværende",
+    badgeAchievable: "Oppnåelig",
+    badgeDifficult: "Vanskelig",
+    badgeUnreachable: "Uoppnåelig",
+    paceFast: "Rask",
+    paceMedium: "Middels",
+    paceSteady: "Jevn",
+    paceRoundsLabel: (n) => `${n} runder`,
+    manualInputLabel: "Runde-ratinger (én per linje, eller kommaseparert)",
+    calculatedRatingLabel: "Beregnet rating",
+    roundsUsedLabel: "Runder brukt",
+    windowLabel: "Vindu",
+    errorPrefix: "Feil:",
+    errorHint: "Sjekk PDGA-nummeret, eller bruk manuell modus for å legge inn runder direkte.",
+    footerAttribution: "Spillerdata © 2026 PDGA",
+    newRoundEventName: "Ny runde",
+    simRoundName: (n) => `Sim. runde ${n}`,
+    manualRoundName: (n) => `Runde ${n}`,
+  },
+  en: {
+    title: "PDGA Rating Calculator",
+    subtitle: "Calculate ratings from rated rounds using PDGA rules",
+    tabFetch: "PDGA Search",
+    tabManual: "Manual",
+    pdgaNumberLabel: "PDGA Number",
+    pdgaPlaceholder: "e.g. 281989",
+    fetchButton: "Fetch rounds",
+    fetchingButton: "Fetching...",
+    errorInvalidNumber: "Please enter a valid PDGA number.",
+    errorFetch: "Could not fetch player data.",
+    errorNetwork: "Network error. Could not reach the server.",
+    subTabCalculate: "Calculate rating",
+    subTabGoal: "Goal setting",
+    officialRating: "Official rating",
+    roundsFound: "rated rounds found",
+    nextUpdateLabel: "Next rating update",
+    nextUpdateHint: "(every 2nd Tuesday each month)",
+    windowHint: "The 365-day window is counted back from this date.",
+    addNewRounds: "Add new rounds",
+    addRound: "Add",
+    noRoundsHint: "Add hypothetical rounds to see how they affect the rating.",
+    ratingPlaceholder: "Rating",
+    calculateButton: "Calculate rating",
+    official: "Official",
+    calculated: "Calculated",
+    difference: "Difference",
+    rounds: "Rounds",
+    extendedWindow: (m) => `Extended window to ${m} months (fewer than 8 rounds in 12 months)`,
+    months: "mo",
+    colTournament: "Tournament",
+    colDate: "Date",
+    colRating: "Rating",
+    colTier: "Tier",
+    colEval: "Eval",
+    colIncl: "Incl",
+    yes: "Yes",
+    no: "No",
+    showAll: (total, more) => `Show all ${total} rounds (${more} more)`,
+    showFewer: "Show fewer",
+    roundDetails: "Round details",
+    legendInWindow: "In window",
+    legendDoubleWeighted: "Double weighted",
+    legendOutlier: "Outlier",
+    legendNewRound: "New round",
+    legendOutsideWindow: "Outside window",
+    colWeight: "Wt",
+    colStatus: "Status",
+    badgeOutlier: "Outlier",
+    badgeOutside: "Outside",
+    badgeNew2x: "New 2x",
+    badgeNew: "New",
+    badgeIncluded: "Included",
+    targetRatingLabel: "Target rating",
+    examplePrefix: "e.g.",
+    calculateGoalButton: "Calculate",
+    currentProjected: "Current (projected)",
+    target: "Target",
+    newRoundsUnit: "new rounds",
+    avgNeeded: "Avg rating needed",
+    diffFromCurrent: "Difference from current",
+    perRound: "per round",
+    notReachable: "Unreachable",
+    maxProjected: "Max projected:",
+    colPace: "Pace",
+    colRounds: "Rounds",
+    colAvgNeeded: "Avg needed",
+    colVsCurrent: "vs current",
+    badgeAchievable: "Achievable",
+    badgeDifficult: "Difficult",
+    badgeUnreachable: "Unreachable",
+    paceFast: "Fast",
+    paceMedium: "Medium",
+    paceSteady: "Steady",
+    paceRoundsLabel: (n) => `${n} rounds`,
+    manualInputLabel: "Round ratings (one per line, or comma-separated)",
+    calculatedRatingLabel: "Calculated rating",
+    roundsUsedLabel: "Rounds used",
+    windowLabel: "Window",
+    errorPrefix: "Error:",
+    errorHint: "Check the PDGA number, or use manual mode to enter rounds directly.",
+    footerAttribution: "Player data © 2026 PDGA",
+    newRoundEventName: "New round",
+    simRoundName: (n) => `Sim round ${n}`,
+    manualRoundName: (n) => `Round ${n}`,
+  },
+};
+
+const LangContext = createContext<Lang>("no");
+function useT(): Translations {
+  return translations[useContext(LangContext)];
+}
+
+// ─── Types & helpers ──────────────────────────────────────────────────────────
 
 type Tab = "manual" | "fetch";
 
@@ -16,81 +289,92 @@ interface NewRound {
 }
 
 function createNewRound(nextId: React.MutableRefObject<number>): NewRound {
-  return {
-    id: nextId.current++,
-    rating: "",
-  };
+  return { id: nextId.current++, rating: "" };
 }
+
+// ─── Home ─────────────────────────────────────────────────────────────────────
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<Tab>("fetch");
   const [playerData, setPlayerData] = useState<PlayerData | null>(null);
+  const [lang, setLang] = useState<Lang>("no");
+  const t = translations[lang];
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: "fetch", label: "PDGA-søk" },
-    { id: "manual", label: "Manuell" },
+    { id: "fetch", label: t.tabFetch },
+    { id: "manual", label: t.tabManual },
   ];
 
   return (
-    <div className="flex flex-col min-h-full bg-zinc-950 text-zinc-100">
-      {process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID && (
-        <AdBanner
-          clientId={process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID}
-          slotId={process.env.NEXT_PUBLIC_ADSENSE_SLOT_ID ?? ""}
-        />
-      )}
-      <header className="border-b border-zinc-800 bg-zinc-900">
-        <div className="mx-auto max-w-4xl px-4 sm:px-6 py-5">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
-            PDGA Rating-kalkulator
-          </h1>
-          <p className="mt-1 text-sm text-zinc-400">
-            Beregn rating fra ratede runder basert på PDGA-regler
-          </p>
-        </div>
-      </header>
-
-      <main className="flex-1 mx-auto w-full max-w-4xl px-4 sm:px-6 py-5">
-        <div className="flex border-b border-zinc-800 mb-5">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 sm:flex-none px-4 py-3 text-sm font-medium border-b-2 transition-colors cursor-pointer ${
-                activeTab === tab.id
-                  ? "border-white text-white"
-                  : "border-transparent text-zinc-500 hover:text-zinc-300"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {activeTab === "fetch" && (
-          <FetchMode playerData={playerData} onPlayerData={setPlayerData} />
+    <LangContext.Provider value={lang}>
+      <div className="flex flex-col min-h-full bg-zinc-950 text-zinc-100">
+        {process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID && (
+          <AdBanner
+            clientId={process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID}
+            slotId={process.env.NEXT_PUBLIC_ADSENSE_SLOT_ID ?? ""}
+          />
         )}
-        {activeTab === "manual" && <ManualMode />}
-      </main>
+        <header className="border-b border-zinc-800 bg-zinc-900">
+          <div className="mx-auto max-w-4xl px-4 sm:px-6 py-5 flex items-start justify-between gap-4">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+                {t.title}
+              </h1>
+              <p className="mt-1 text-sm text-zinc-400">{t.subtitle}</p>
+            </div>
+            <button
+              onClick={() => setLang((l) => (l === "no" ? "en" : "no"))}
+              className="flex-shrink-0 mt-1 flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 transition-colors px-3 py-1.5 text-xs font-semibold text-zinc-300 cursor-pointer"
+              title={lang === "no" ? "Switch to English" : "Bytt til norsk"}
+            >
+              <span className="text-base leading-none">{lang === "no" ? "🇳🇴" : "🇬🇧"}</span>
+              {lang === "no" ? "NO" : "EN"}
+            </button>
+          </div>
+        </header>
 
-      <footer className="border-t border-zinc-800 bg-zinc-900 mt-auto">
-        <div className="mx-auto max-w-4xl px-4 py-4 flex flex-col items-center gap-2">
-          <a
-            href="https://www.hyzershop.no"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm font-medium text-zinc-300 hover:text-white transition-colors hover:underline"
-          >
-            hyzershop.no
-          </a>
-          <span className="text-xs text-zinc-600">
-            Spillerdata &copy; 2026 PDGA
-          </span>
-        </div>
-      </footer>
-    </div>
+        <main className="flex-1 mx-auto w-full max-w-4xl px-4 sm:px-6 py-5">
+          <div className="flex border-b border-zinc-800 mb-5">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-1 sm:flex-none px-4 py-3 text-sm font-medium border-b-2 transition-colors cursor-pointer ${
+                  activeTab === tab.id
+                    ? "border-white text-white"
+                    : "border-transparent text-zinc-500 hover:text-zinc-300"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {activeTab === "fetch" && (
+            <FetchMode playerData={playerData} onPlayerData={setPlayerData} />
+          )}
+          {activeTab === "manual" && <ManualMode />}
+        </main>
+
+        <footer className="border-t border-zinc-800 bg-zinc-900 mt-auto">
+          <div className="mx-auto max-w-4xl px-4 py-4 flex flex-col items-center gap-2">
+            <a
+              href="https://www.hyzershop.no"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-medium text-zinc-300 hover:text-white transition-colors hover:underline"
+            >
+              hyzershop.no
+            </a>
+            <span className="text-xs text-zinc-600">{t.footerAttribution}</span>
+          </div>
+        </footer>
+      </div>
+    </LangContext.Provider>
   );
 }
+
+// ─── FetchMode ────────────────────────────────────────────────────────────────
 
 function FetchMode({
   playerData,
@@ -99,6 +383,7 @@ function FetchMode({
   playerData: PlayerData | null;
   onPlayerData: (data: PlayerData | null) => void;
 }) {
+  const t = useT();
   const [pdgaNumber, setPdgaNumber] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -110,25 +395,23 @@ function FetchMode({
   async function handleFetch() {
     const num = parseInt(pdgaNumber, 10);
     if (isNaN(num) || num <= 0) {
-      setError("Vennligst oppgi et gyldig PDGA-nummer.");
+      setError(t.errorInvalidNumber);
       return;
     }
-
     setLoading(true);
     setError(null);
     onPlayerData(null);
     setResult(null);
-
     try {
       const res = await fetch(`/api/pdga/${num}`);
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Kunne ikke hente spillerdata.");
+        setError(data.error || t.errorFetch);
         return;
       }
       onPlayerData(data as PlayerData);
     } catch {
-      setError("Nettverksfeil. Kunne ikke nå serveren.");
+      setError(t.errorNetwork);
     } finally {
       setLoading(false);
     }
@@ -142,18 +425,14 @@ function FetchMode({
     setNewRounds((prev) => prev.filter((r) => r.id !== id));
   }, []);
 
-  const handleUpdateRound = useCallback(
-    (id: number, value: string) => {
-      setNewRounds((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, rating: value } : r))
-      );
-    },
-    []
-  );
+  const handleUpdateRound = useCallback((id: number, value: string) => {
+    setNewRounds((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, rating: value } : r))
+    );
+  }, []);
 
   function handleCalculate() {
     if (!playerData) return;
-
     const existingRounds = playerData.rounds
       .filter((r) => r.evaluated && r.included)
       .map((r) => ({
@@ -162,19 +441,16 @@ function FetchMode({
         roundRating: r.roundRating,
         isNew: false,
       }));
-
     const parsedNewRounds = newRounds
       .filter((r) => r.rating.trim() !== "")
       .map((r) => ({
-        eventName: "Ny runde",
+        eventName: t.newRoundEventName,
         date: ratingDate,
         roundRating: parseInt(r.rating, 10),
         isNew: true,
       }))
       .filter((r) => !isNaN(r.roundRating));
-
     const allRounds = [...existingRounds, ...parsedNewRounds];
-
     setResult(
       calculateRating(allRounds, {
         referenceDate: parsedNewRounds.length > 0 ? ratingDate : undefined,
@@ -190,7 +466,7 @@ function FetchMode({
             htmlFor="pdga-number"
             className="block text-sm font-medium text-zinc-300 mb-1.5"
           >
-            PDGA-nummer
+            {t.pdgaNumberLabel}
           </label>
           <input
             id="pdga-number"
@@ -200,7 +476,7 @@ function FetchMode({
             value={pdgaNumber}
             onChange={(e) => setPdgaNumber(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleFetch()}
-            placeholder="e.g. 281989"
+            placeholder={t.pdgaPlaceholder}
             className="w-full rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-600 px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-zinc-400"
           />
         </div>
@@ -209,7 +485,7 @@ function FetchMode({
           disabled={loading}
           className="rounded-lg bg-white text-zinc-900 px-5 py-2.5 text-sm font-semibold hover:bg-zinc-200 active:bg-zinc-300 disabled:opacity-40 transition-colors min-h-[44px]"
         >
-          {loading ? "Henter..." : "Hent runder"}
+          {loading ? t.fetchingButton : t.fetchButton}
         </button>
       </div>
 
@@ -231,6 +507,8 @@ function FetchMode({
     </div>
   );
 }
+
+// ─── FetchSubTabs ─────────────────────────────────────────────────────────────
 
 type FetchSubTab = "calculate" | "goal";
 
@@ -255,11 +533,12 @@ function FetchSubTabs({
   onUpdateRound: (id: number, value: string) => void;
   onCalculate: () => void;
 }) {
+  const t = useT();
   const [subTab, setSubTab] = useState<FetchSubTab>("calculate");
 
   const subTabs: { id: FetchSubTab; label: string }[] = [
-    { id: "calculate", label: "Beregn rating" },
-    { id: "goal", label: "Målsetting" },
+    { id: "calculate", label: t.subTabCalculate },
+    { id: "goal", label: t.subTabGoal },
   ];
 
   return (
@@ -292,16 +571,13 @@ function FetchSubTabs({
             onRemove={onRemoveRound}
             onUpdate={onUpdateRound}
           />
-
           <button
             onClick={onCalculate}
             className="w-full sm:w-auto rounded-lg bg-white text-zinc-900 px-6 py-3 text-sm font-semibold hover:bg-zinc-200 active:bg-zinc-300 transition-colors min-h-[48px]"
           >
-            Beregn rating
+            {t.calculateButton}
           </button>
-
           {result && <ResultSummary result={result} playerData={playerData} />}
-
           <RoundsTable
             rounds={result?.rounds ?? null}
             allRounds={playerData.rounds}
@@ -313,6 +589,8 @@ function FetchSubTabs({
     </div>
   );
 }
+
+// ─── NewRoundsInput ───────────────────────────────────────────────────────────
 
 function NewRoundsInput({
   rounds,
@@ -329,6 +607,7 @@ function NewRoundsInput({
   onRemove: (id: number) => void;
   onUpdate: (id: number, value: string) => void;
 }) {
+  const t = useT();
   return (
     <div className="rounded-lg border border-dashed border-zinc-700 bg-zinc-900/50 p-4 space-y-4">
       <div>
@@ -336,8 +615,8 @@ function NewRoundsInput({
           htmlFor="rating-date"
           className="block text-sm font-medium text-zinc-300 mb-1.5"
         >
-          Neste ratingoppdatering{" "}
-          <span className="font-normal text-zinc-500">(annenhver tirsdag hver måned)</span>
+          {t.nextUpdateLabel}{" "}
+          <span className="font-normal text-zinc-500">{t.nextUpdateHint}</span>
         </label>
         <input
           id="rating-date"
@@ -346,40 +625,26 @@ function NewRoundsInput({
           onChange={(e) => onDateChange(e.target.value)}
           className="w-full sm:w-auto rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-100 px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-zinc-400"
         />
-        <p className="mt-1 text-xs text-zinc-600">
-          365-dagers vinduet beregnes tilbake fra denne datoen.
-        </p>
+        <p className="mt-1 text-xs text-zinc-600">{t.windowHint}</p>
       </div>
 
       <div>
         <div className="flex items-center justify-between mb-2.5">
-          <h3 className="text-sm font-medium text-zinc-300">
-            Legg til nye runder
-          </h3>
+          <h3 className="text-sm font-medium text-zinc-300">{t.addNewRounds}</h3>
           <button
             onClick={onAdd}
             className="flex items-center gap-1.5 rounded-lg bg-zinc-700 text-zinc-100 px-3 py-2 text-sm font-medium hover:bg-zinc-600 active:bg-zinc-500 transition-colors min-h-[40px]"
           >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-            >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
-            <span className="hidden sm:inline">Legg til</span>
+            <span className="hidden sm:inline">{t.addRound}</span>
           </button>
         </div>
 
         {rounds.length === 0 && (
-          <p className="text-sm text-zinc-600">
-            Legg til hypotetiske runder for å se hvordan de påvirker ratingen.
-          </p>
+          <p className="text-sm text-zinc-600">{t.noRoundsHint}</p>
         )}
 
         <div className="space-y-2">
@@ -392,7 +657,7 @@ function NewRoundsInput({
                 type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
-                placeholder="Rating"
+                placeholder={t.ratingPlaceholder}
                 value={r.rating}
                 onChange={(e) => onUpdate(r.id, e.target.value)}
                 className="flex-1 rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-600 px-3 py-2.5 text-base font-mono focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-zinc-400"
@@ -402,15 +667,7 @@ function NewRoundsInput({
                 className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-lg text-zinc-600 hover:bg-zinc-800 hover:text-zinc-300 active:bg-zinc-700 transition-colors"
                 aria-label="Remove round"
               >
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
@@ -423,16 +680,16 @@ function NewRoundsInput({
   );
 }
 
+// ─── Date helpers ─────────────────────────────────────────────────────────────
+
 function getNextRatingUpdate(): string {
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth();
-
   for (let m = month; m < month + 3; m++) {
     const d = nthWeekday(m > 11 ? year + 1 : year, m % 12, 2, 2);
     if (d >= now) return d.toISOString().slice(0, 10);
   }
-
   return now.toISOString().slice(0, 10);
 }
 
@@ -442,6 +699,8 @@ function nthWeekday(year: number, month: number, weekday: number, n: number): Da
   const offset = ((weekday - firstDay + 7) % 7) + (n - 1) * 7;
   return new Date(year, month, 1 + offset);
 }
+
+// ─── GoalSection ──────────────────────────────────────────────────────────────
 
 interface PaceResult {
   label: string;
@@ -455,12 +714,13 @@ function simulateRequiredRating(
   existingRounds: { eventName: string; date: string; roundRating: number }[],
   targetRating: number,
   newRoundCount: number,
-  refDate: string
+  refDate: string,
+  t: Translations
 ): PaceResult {
   const labels: Record<number, string> = {
-    5: "Rask",
-    10: "Middels",
-    20: "Jevn",
+    5: t.paceFast,
+    10: t.paceMedium,
+    20: t.paceSteady,
   };
 
   let lo = 500;
@@ -472,15 +732,13 @@ function simulateRequiredRating(
     const simRounds = [
       ...existingRounds.map((r) => ({ ...r, isNew: false })),
       ...Array.from({ length: newRoundCount }, (_, i) => ({
-        eventName: `Sim. runde ${i + 1}`,
+        eventName: t.simRoundName(i + 1),
         date: refDate,
         roundRating: mid,
         isNew: true,
       })),
     ];
-
     const result = calculateRating(simRounds, { referenceDate: refDate });
-
     if (result.calculatedRating >= targetRating) {
       best = mid;
       hi = mid - 1;
@@ -493,16 +751,15 @@ function simulateRequiredRating(
     const simAtMax = [
       ...existingRounds.map((r) => ({ ...r, isNew: false })),
       ...Array.from({ length: newRoundCount }, (_, i) => ({
-        eventName: `Sim. runde ${i + 1}`,
+        eventName: t.simRoundName(i + 1),
         date: refDate,
         roundRating: 1150,
         isNew: true,
       })),
     ];
     const maxResult = calculateRating(simAtMax, { referenceDate: refDate });
-
     return {
-      label: labels[newRoundCount] ?? `${newRoundCount} runder`,
+      label: labels[newRoundCount] ?? t.paceRoundsLabel(newRoundCount),
       roundCount: newRoundCount,
       requiredAvg: null,
       projectedRating: maxResult.calculatedRating,
@@ -511,7 +768,7 @@ function simulateRequiredRating(
   }
 
   return {
-    label: labels[newRoundCount] ?? `${newRoundCount} runder`,
+    label: labels[newRoundCount] ?? t.paceRoundsLabel(newRoundCount),
     roundCount: newRoundCount,
     requiredAvg: best,
     projectedRating: targetRating,
@@ -520,6 +777,7 @@ function simulateRequiredRating(
 }
 
 function GoalSection({ playerData }: { playerData: PlayerData }) {
+  const t = useT();
   const [targetRating, setTargetRating] = useState("");
   const [results, setResults] = useState<PaceResult[] | null>(null);
   const [currentRating, setCurrentRating] = useState<number | null>(null);
@@ -527,25 +785,17 @@ function GoalSection({ playerData }: { playerData: PlayerData }) {
   function handleCalculate() {
     const target = parseInt(targetRating, 10);
     if (isNaN(target) || target < 0) return;
-
     const refDate = getNextRatingUpdate();
-
     const existingRounds = playerData.rounds
       .filter((r) => r.evaluated && r.included)
-      .map((r) => ({
-        eventName: r.eventName,
-        date: r.date,
-        roundRating: r.roundRating,
-      }));
-
+      .map((r) => ({ eventName: r.eventName, date: r.date, roundRating: r.roundRating }));
     const current = calculateRating(
       existingRounds.map((r) => ({ ...r, isNew: false })),
       { referenceDate: refDate }
     );
     setCurrentRating(current.calculatedRating);
-
     const paces = [5, 10, 20].map((n) =>
-      simulateRequiredRating(existingRounds, target, n, refDate)
+      simulateRequiredRating(existingRounds, target, n, refDate, t)
     );
     setResults(paces);
   }
@@ -558,7 +808,7 @@ function GoalSection({ playerData }: { playerData: PlayerData }) {
             htmlFor="target-rating"
             className="block text-sm font-medium text-zinc-300 mb-1.5"
           >
-            Målrating
+            {t.targetRatingLabel}
           </label>
           <input
             id="target-rating"
@@ -570,8 +820,8 @@ function GoalSection({ playerData }: { playerData: PlayerData }) {
             onKeyDown={(e) => e.key === "Enter" && handleCalculate()}
             placeholder={
               playerData.officialRating
-                ? `f.eks. ${playerData.officialRating + 20}`
-                : "f.eks. 950"
+                ? `${t.examplePrefix} ${playerData.officialRating + 20}`
+                : `${t.examplePrefix} 950`
             }
             className="w-full rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-600 px-3 py-2.5 text-base font-mono focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-zinc-400"
           />
@@ -580,7 +830,7 @@ function GoalSection({ playerData }: { playerData: PlayerData }) {
           onClick={handleCalculate}
           className="rounded-lg bg-white text-zinc-900 px-5 py-2.5 text-sm font-semibold hover:bg-zinc-200 active:bg-zinc-300 transition-colors min-h-[44px]"
         >
-          Beregn
+          {t.calculateGoalButton}
         </button>
       </div>
 
@@ -589,16 +839,12 @@ function GoalSection({ playerData }: { playerData: PlayerData }) {
           <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
             <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
               <div>
-                <dt className="text-xs text-zinc-500">Nåværende (beregnet)</dt>
-                <dd className="text-xl font-bold text-zinc-200">
-                  {currentRating}
-                </dd>
+                <dt className="text-xs text-zinc-500">{t.currentProjected}</dt>
+                <dd className="text-xl font-bold text-zinc-200">{currentRating}</dd>
               </div>
               <div>
-                <dt className="text-xs text-zinc-500">Mål</dt>
-                <dd className="text-xl font-bold text-white">
-                  {targetRating}
-                </dd>
+                <dt className="text-xs text-zinc-500">{t.target}</dt>
+                <dd className="text-xl font-bold text-white">{targetRating}</dd>
               </div>
             </dl>
           </div>
@@ -606,9 +852,7 @@ function GoalSection({ playerData }: { playerData: PlayerData }) {
           <div className="grid gap-4 sm:grid-cols-3">
             {results.map((pace) => {
               const diff =
-                pace.requiredAvg !== null
-                  ? pace.requiredAvg - currentRating
-                  : null;
+                pace.requiredAvg !== null ? pace.requiredAvg - currentRating : null;
               const tier = getDifficultyTier(diff, pace.feasible);
               const borderColor =
                 tier === "easy"
@@ -624,11 +868,9 @@ function GoalSection({ playerData }: { playerData: PlayerData }) {
                 >
                   <div className="px-4 py-3 border-b border-zinc-800 bg-zinc-800/50 flex items-center justify-between">
                     <div>
-                      <h3 className="text-sm font-semibold text-white">
-                        {pace.label}
-                      </h3>
+                      <h3 className="text-sm font-semibold text-white">{pace.label}</h3>
                       <p className="text-xs text-zinc-500">
-                        {pace.roundCount} nye runder
+                        {pace.roundCount} {t.newRoundsUnit}
                       </p>
                     </div>
                     <DifficultyBadge tier={tier} />
@@ -637,18 +879,18 @@ function GoalSection({ playerData }: { playerData: PlayerData }) {
                     {pace.feasible ? (
                       <>
                         <div>
-                          <dt className="text-xs text-zinc-500">Snittrating nødvendig</dt>
+                          <dt className="text-xs text-zinc-500">{t.avgNeeded}</dt>
                           <dd className="text-2xl font-bold text-white font-mono">
                             {pace.requiredAvg}
                           </dd>
                         </div>
                         <div>
-                          <dt className="text-xs text-zinc-500">Forskjell fra nåværende</dt>
+                          <dt className="text-xs text-zinc-500">{t.diffFromCurrent}</dt>
                           <dd className="text-sm font-mono text-zinc-300">
                             {diff !== null &&
                               (diff > 0
-                                ? `+${diff} per runde`
-                                : `${diff} per runde`)}
+                                ? `+${diff} ${t.perRound}`
+                                : `${diff} ${t.perRound}`)}
                           </dd>
                         </div>
                         <RatingBar
@@ -659,9 +901,9 @@ function GoalSection({ playerData }: { playerData: PlayerData }) {
                       </>
                     ) : (
                       <div className="text-center py-2">
-                        <p className="text-sm text-red-400/80">Uoppnåelig</p>
+                        <p className="text-sm text-red-400/80">{t.notReachable}</p>
                         <p className="text-xs text-zinc-600 mt-1">
-                          Maks beregnet: {pace.projectedRating}
+                          {t.maxProjected} {pace.projectedRating}
                         </p>
                       </div>
                     )}
@@ -677,11 +919,11 @@ function GoalSection({ playerData }: { playerData: PlayerData }) {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-zinc-800 bg-zinc-800/50 text-left">
-                      <th className="px-3 py-2 font-medium text-zinc-400">Tempo</th>
-                      <th className="px-3 py-2 font-medium text-zinc-400">Runder</th>
-                      <th className="px-3 py-2 font-medium text-zinc-400">Snitt nødv.</th>
-                      <th className="px-3 py-2 font-medium text-zinc-400">vs nåværende</th>
-                      <th className="px-3 py-2 font-medium text-zinc-400">Status</th>
+                      <th className="px-3 py-2 font-medium text-zinc-400">{t.colPace}</th>
+                      <th className="px-3 py-2 font-medium text-zinc-400">{t.colRounds}</th>
+                      <th className="px-3 py-2 font-medium text-zinc-400">{t.colAvgNeeded}</th>
+                      <th className="px-3 py-2 font-medium text-zinc-400">{t.colVsCurrent}</th>
+                      <th className="px-3 py-2 font-medium text-zinc-400">{t.colStatus}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -729,6 +971,8 @@ function GoalSection({ playerData }: { playerData: PlayerData }) {
   );
 }
 
+// ─── Difficulty helpers ───────────────────────────────────────────────────────
+
 type DifficultyTier = "easy" | "hard" | "unreachable";
 
 function getDifficultyTier(diff: number | null, feasible: boolean): DifficultyTier {
@@ -739,26 +983,29 @@ function getDifficultyTier(diff: number | null, feasible: boolean): DifficultyTi
 }
 
 function DifficultyBadge({ tier }: { tier: DifficultyTier }) {
+  const t = useT();
   if (tier === "easy") {
     return (
       <span className="inline-flex items-center rounded-full bg-emerald-900/60 px-2 py-0.5 text-xs font-medium text-emerald-300">
-        Oppnåelig
+        {t.badgeAchievable}
       </span>
     );
   }
   if (tier === "hard") {
     return (
       <span className="inline-flex items-center rounded-full bg-amber-900/50 px-2 py-0.5 text-xs font-medium text-amber-300">
-        Vanskelig
+        {t.badgeDifficult}
       </span>
     );
   }
   return (
     <span className="inline-flex items-center rounded-full bg-red-900/40 px-2 py-0.5 text-xs font-medium text-red-400">
-      Uoppnåelig
+      {t.badgeUnreachable}
     </span>
   );
 }
+
+// ─── RatingBar ────────────────────────────────────────────────────────────────
 
 function RatingBar({
   current,
@@ -772,7 +1019,6 @@ function RatingBar({
   const min = Math.min(current, required, target) - 30;
   const max = Math.max(current, required, target) + 30;
   const range = max - min;
-
   const currentPct = ((current - min) / range) * 100;
   const requiredPct = ((required - min) / range) * 100;
 
@@ -781,7 +1027,10 @@ function RatingBar({
       <div className="relative h-2 rounded-full bg-zinc-800 overflow-hidden">
         <div
           className="absolute h-full bg-zinc-500 rounded-full"
-          style={{ left: `${Math.min(currentPct, requiredPct)}%`, width: `${Math.abs(requiredPct - currentPct)}%` }}
+          style={{
+            left: `${Math.min(currentPct, requiredPct)}%`,
+            width: `${Math.abs(requiredPct - currentPct)}%`,
+          }}
         />
       </div>
       <div className="relative mt-1 text-[10px] text-zinc-600">
@@ -796,27 +1045,23 @@ function RatingBar({
   );
 }
 
+// ─── ManualMode ───────────────────────────────────────────────────────────────
+
 function ManualMode() {
+  const t = useT();
   const [input, setInput] = useState("");
   const [result, setResult] = useState<CalculationResult | null>(null);
 
   function handleCalculate() {
-    const lines = input
-      .split(/[\n,]+/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-
+    const lines = input.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean);
     const ratings = lines.map((l) => parseInt(l, 10)).filter((n) => !isNaN(n));
-
     if (ratings.length === 0) return;
-
     const today = new Date().toISOString().slice(0, 10);
     const rounds = ratings.map((r, i) => ({
-      eventName: `Runde ${i + 1}`,
+      eventName: t.manualRoundName(i + 1),
       date: today,
       roundRating: r,
     }));
-
     setResult(calculateRating(rounds));
   }
 
@@ -827,7 +1072,7 @@ function ManualMode() {
           htmlFor="manual-rounds"
           className="block text-sm font-medium text-zinc-300 mb-1.5"
         >
-          Runde-ratinger (én per linje, eller kommaseparert)
+          {t.manualInputLabel}
         </label>
         <textarea
           id="manual-rounds"
@@ -838,37 +1083,32 @@ function ManualMode() {
           className="w-full rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-600 px-3 py-2.5 text-base font-mono focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-zinc-400"
         />
       </div>
-
       <button
         onClick={handleCalculate}
         className="w-full sm:w-auto rounded-lg bg-white text-zinc-900 px-6 py-3 text-sm font-semibold hover:bg-zinc-200 active:bg-zinc-300 transition-colors min-h-[48px]"
       >
-        Beregn rating
+        {t.calculateButton}
       </button>
-
       {result && (
         <div className="space-y-4">
           <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
             <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3">
               <div>
-                <dt className="text-xs text-zinc-500">Beregnet rating</dt>
-                <dd className="text-2xl font-bold text-white">
-                  {result.calculatedRating}
-                </dd>
+                <dt className="text-xs text-zinc-500">{t.calculatedRatingLabel}</dt>
+                <dd className="text-2xl font-bold text-white">{result.calculatedRating}</dd>
               </div>
               <div>
-                <dt className="text-xs text-zinc-500">Runder brukt</dt>
+                <dt className="text-xs text-zinc-500">{t.roundsUsedLabel}</dt>
                 <dd className="text-2xl font-bold text-white">{result.roundsUsed}</dd>
               </div>
               <div>
-                <dt className="text-xs text-zinc-500">Vindu</dt>
+                <dt className="text-xs text-zinc-500">{t.windowLabel}</dt>
                 <dd className="text-2xl font-bold text-white">
-                  {result.windowMonths} mnd
+                  {result.windowMonths} {t.months}
                 </dd>
               </div>
             </dl>
           </div>
-
           <ManualRoundsTable rounds={result.rounds} />
         </div>
       )}
@@ -876,7 +1116,10 @@ function ManualMode() {
   );
 }
 
+// ─── PlayerInfo ───────────────────────────────────────────────────────────────
+
 function PlayerInfo({ data }: { data: PlayerData }) {
+  const t = useT();
   return (
     <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
       <div className="flex items-center gap-4">
@@ -905,18 +1148,20 @@ function PlayerInfo({ data }: { data: PlayerData }) {
           </div>
           {data.officialRating && (
             <p className="mt-0.5 text-sm text-zinc-400">
-              Offisiell rating:{" "}
+              {t.officialRating}:{" "}
               <span className="font-semibold text-zinc-200">{data.officialRating}</span>
             </p>
           )}
           <p className="text-sm text-zinc-500">
-            {data.rounds.length} ratede runder funnet
+            {data.rounds.length} {t.roundsFound}
           </p>
         </div>
       </div>
     </div>
   );
 }
+
+// ─── ResultSummary ────────────────────────────────────────────────────────────
 
 function ResultSummary({
   result,
@@ -925,6 +1170,7 @@ function ResultSummary({
   result: CalculationResult;
   playerData: PlayerData;
 }) {
+  const t = useT();
   const diff =
     playerData.officialRating != null
       ? result.calculatedRating - playerData.officialRating
@@ -934,19 +1180,19 @@ function ResultSummary({
     <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
       <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
         <div>
-          <dt className="text-xs text-zinc-500">Offisiell</dt>
+          <dt className="text-xs text-zinc-500">{t.official}</dt>
           <dd className="text-xl sm:text-2xl font-bold text-zinc-200">
             {playerData.officialRating ?? "N/A"}
           </dd>
         </div>
         <div>
-          <dt className="text-xs text-zinc-500">Beregnet</dt>
+          <dt className="text-xs text-zinc-500">{t.calculated}</dt>
           <dd className="text-xl sm:text-2xl font-bold text-white">
             {result.calculatedRating}
           </dd>
         </div>
         <div>
-          <dt className="text-xs text-zinc-500">Differanse</dt>
+          <dt className="text-xs text-zinc-500">{t.difference}</dt>
           <dd
             className={`text-xl sm:text-2xl font-bold ${
               diff != null && diff > 0
@@ -960,25 +1206,25 @@ function ResultSummary({
           </dd>
         </div>
         <div>
-          <dt className="text-xs text-zinc-500">Runder</dt>
+          <dt className="text-xs text-zinc-500">{t.rounds}</dt>
           <dd className="text-xl sm:text-2xl font-bold text-zinc-200">
             {result.roundsUsed}
             <span className="text-sm font-normal text-zinc-600">
-              {" "}
-              / {result.totalRoundsConsidered}
+              {" "}/ {result.totalRoundsConsidered}
             </span>
           </dd>
         </div>
       </dl>
       {result.windowMonths > 12 && (
         <p className="mt-3 text-xs text-zinc-500">
-          Utvidet vindu til {result.windowMonths} måneder (færre enn 8 runder
-          innen 12 måneder)
+          {t.extendedWindow(result.windowMonths)}
         </p>
       )}
     </div>
   );
 }
+
+// ─── RoundsTable ──────────────────────────────────────────────────────────────
 
 const ROUNDS_LIMIT = 40;
 
@@ -989,6 +1235,7 @@ function RoundsTable({
   rounds: CalculatedRound[] | null;
   allRounds: PlayerData["rounds"];
 }) {
+  const t = useT();
   const [expanded, setExpanded] = useState(false);
 
   if (!rounds) {
@@ -1003,12 +1250,12 @@ function RoundsTable({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-zinc-800 bg-zinc-800/50 text-left">
-                    <th className="px-3 py-2 font-medium text-zinc-400">Turnering</th>
-                    <th className="px-3 py-2 font-medium text-zinc-400">Dato</th>
-                    <th className="px-3 py-2 font-medium text-zinc-400">Rating</th>
-                    <th className="px-3 py-2 font-medium text-zinc-400 hidden sm:table-cell">Tier</th>
-                    <th className="px-3 py-2 font-medium text-zinc-400 hidden sm:table-cell">Eval</th>
-                    <th className="px-3 py-2 font-medium text-zinc-400 hidden sm:table-cell">Inkl</th>
+                    <th className="px-3 py-2 font-medium text-zinc-400">{t.colTournament}</th>
+                    <th className="px-3 py-2 font-medium text-zinc-400">{t.colDate}</th>
+                    <th className="px-3 py-2 font-medium text-zinc-400">{t.colRating}</th>
+                    <th className="px-3 py-2 font-medium text-zinc-400 hidden sm:table-cell">{t.colTier}</th>
+                    <th className="px-3 py-2 font-medium text-zinc-400 hidden sm:table-cell">{t.colEval}</th>
+                    <th className="px-3 py-2 font-medium text-zinc-400 hidden sm:table-cell">{t.colIncl}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1023,8 +1270,8 @@ function RoundsTable({
                       <td className="px-3 py-2 whitespace-nowrap">{r.date}</td>
                       <td className="px-3 py-2 font-mono">{r.roundRating}</td>
                       <td className="px-3 py-2 hidden sm:table-cell">{r.tier}</td>
-                      <td className="px-3 py-2 hidden sm:table-cell">{r.evaluated ? "Ja" : "Nei"}</td>
-                      <td className="px-3 py-2 hidden sm:table-cell">{r.included ? "Ja" : "Nei"}</td>
+                      <td className="px-3 py-2 hidden sm:table-cell">{r.evaluated ? t.yes : t.no}</td>
+                      <td className="px-3 py-2 hidden sm:table-cell">{r.included ? t.yes : t.no}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1038,8 +1285,8 @@ function RoundsTable({
             className="w-full text-center text-sm text-zinc-400 hover:text-zinc-200 py-2 transition-colors cursor-pointer"
           >
             {expanded
-              ? "Vis færre"
-              : `Vis alle ${allRounds.length} runder (${allRounds.length - ROUNDS_LIMIT} til)`}
+              ? t.showFewer
+              : t.showAll(allRounds.length, allRounds.length - ROUNDS_LIMIT)}
           </button>
         )}
       </div>
@@ -1051,27 +1298,27 @@ function RoundsTable({
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-medium text-zinc-400">Rundedetaljer</h3>
+      <h3 className="text-sm font-medium text-zinc-400">{t.roundDetails}</h3>
       <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-zinc-500">
         <span className="flex items-center gap-1">
           <span className="inline-block w-3 h-3 rounded-sm bg-emerald-900/60 border border-emerald-700/50" />
-          I vindu
+          {t.legendInWindow}
         </span>
         <span className="flex items-center gap-1">
           <span className="inline-block w-3 h-3 rounded-sm bg-emerald-800/50 border border-emerald-600/50" />
-          Dobbelvektet
+          {t.legendDoubleWeighted}
         </span>
         <span className="flex items-center gap-1">
           <span className="inline-block w-3 h-3 rounded-sm bg-zinc-800 border border-zinc-600" />
-          Avvik
+          {t.legendOutlier}
         </span>
         <span className="flex items-center gap-1">
           <span className="inline-block w-3 h-3 rounded-sm bg-sky-900/40 border border-sky-700/40" />
-          Ny runde
+          {t.legendNewRound}
         </span>
         <span className="flex items-center gap-1">
           <span className="inline-block w-3 h-3 rounded-sm bg-zinc-900 border border-zinc-800" />
-          Utenfor vindu
+          {t.legendOutsideWindow}
         </span>
       </div>
       <div className="overflow-x-auto -mx-4 sm:mx-0">
@@ -1080,11 +1327,11 @@ function RoundsTable({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-800 bg-zinc-800/50 text-left">
-                  <th className="px-3 py-2 font-medium text-zinc-400">Turnering</th>
-                  <th className="px-3 py-2 font-medium text-zinc-400">Dato</th>
-                  <th className="px-3 py-2 font-medium text-zinc-400">Rating</th>
-                  <th className="px-3 py-2 font-medium text-zinc-400">Vekt</th>
-                  <th className="px-3 py-2 font-medium text-zinc-400">Status</th>
+                  <th className="px-3 py-2 font-medium text-zinc-400">{t.colTournament}</th>
+                  <th className="px-3 py-2 font-medium text-zinc-400">{t.colDate}</th>
+                  <th className="px-3 py-2 font-medium text-zinc-400">{t.colRating}</th>
+                  <th className="px-3 py-2 font-medium text-zinc-400">{t.colWeight}</th>
+                  <th className="px-3 py-2 font-medium text-zinc-400">{t.colStatus}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1128,25 +1375,28 @@ function RoundsTable({
           className="w-full text-center text-sm text-zinc-400 hover:text-zinc-200 py-2 transition-colors cursor-pointer"
         >
           {expanded
-            ? "Vis færre"
-            : `Vis alle ${rounds.length} runder (${rounds.length - ROUNDS_LIMIT} til)`}
+            ? t.showFewer
+            : t.showAll(rounds.length, rounds.length - ROUNDS_LIMIT)}
         </button>
       )}
     </div>
   );
 }
 
+// ─── ManualRoundsTable ────────────────────────────────────────────────────────
+
 function ManualRoundsTable({ rounds }: { rounds: CalculatedRound[] }) {
+  const t = useT();
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-zinc-500">
         <span className="flex items-center gap-1">
-          <span className="inline-block w-3 h-3 rounded-sm bg-zinc-600 border border-zinc-400" />
-          Dobbelvektet
+          <span className="inline-block w-3 h-3 rounded-sm bg-emerald-800/50 border border-emerald-600/50" />
+          {t.legendDoubleWeighted}
         </span>
         <span className="flex items-center gap-1">
           <span className="inline-block w-3 h-3 rounded-sm bg-zinc-800 border border-zinc-600" />
-          Avvik
+          {t.legendOutlier}
         </span>
       </div>
       <div className="overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-900">
@@ -1154,9 +1404,9 @@ function ManualRoundsTable({ rounds }: { rounds: CalculatedRound[] }) {
           <thead>
             <tr className="border-b border-zinc-800 bg-zinc-800/50 text-left">
               <th className="px-3 py-2 font-medium text-zinc-400">#</th>
-              <th className="px-3 py-2 font-medium text-zinc-400">Rating</th>
-              <th className="px-3 py-2 font-medium text-zinc-400">Vekt</th>
-              <th className="px-3 py-2 font-medium text-zinc-400">Status</th>
+              <th className="px-3 py-2 font-medium text-zinc-400">{t.colRating}</th>
+              <th className="px-3 py-2 font-medium text-zinc-400">{t.colWeight}</th>
+              <th className="px-3 py-2 font-medium text-zinc-400">{t.colStatus}</th>
             </tr>
           </thead>
           <tbody>
@@ -1186,6 +1436,8 @@ function ManualRoundsTable({ rounds }: { rounds: CalculatedRound[] }) {
   );
 }
 
+// ─── Row color & StatusBadge ──────────────────────────────────────────────────
+
 function rowColor(r: CalculatedRound): string {
   if (r.isOutlier) return "bg-zinc-950";
   if (r.isNew && r.inWindow) return "bg-sky-950/30";
@@ -1196,22 +1448,23 @@ function rowColor(r: CalculatedRound): string {
 }
 
 function StatusBadge({ round }: { round: CalculatedRound }) {
+  const t = useT();
   if (round.isOutlier) {
     return (
       <span className="inline-flex items-center rounded-full bg-red-900/40 px-2 py-0.5 text-xs font-medium text-red-400">
-        Avvik
+        {t.badgeOutlier}
       </span>
     );
   }
   if (!round.inWindow) {
     return (
       <span className="inline-flex items-center rounded-full bg-zinc-800 px-2 py-0.5 text-xs font-medium text-zinc-600">
-        Utenfor
+        {t.badgeOutside}
       </span>
     );
   }
   if (round.isNew) {
-    const label = round.isDoubleWeighted ? "Ny 2x" : "Ny";
+    const label = round.isDoubleWeighted ? t.badgeNew2x : t.badgeNew;
     return (
       <span className="inline-flex items-center rounded-full bg-sky-900/50 px-2 py-0.5 text-xs font-medium text-sky-300">
         {label}
@@ -1221,30 +1474,32 @@ function StatusBadge({ round }: { round: CalculatedRound }) {
   if (round.isDoubleWeighted) {
     return (
       <span className="inline-flex items-center rounded-full bg-emerald-900/50 px-2 py-0.5 text-xs font-medium text-emerald-300">
-        2x
+        {t.badgeIncluded} 2x
       </span>
     );
   }
   return (
     <span className="inline-flex items-center rounded-full bg-emerald-900/30 px-2 py-0.5 text-xs font-medium text-emerald-400/80">
-      Inkludert
+      {t.badgeIncluded}
     </span>
   );
 }
 
+// ─── ErrorMessage ─────────────────────────────────────────────────────────────
+
 function ErrorMessage({ message }: { message: string }) {
+  const t = useT();
   return (
     <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
       <p className="text-sm text-zinc-300">
-        <span className="font-semibold text-white">Feil:</span> {message}
+        <span className="font-semibold text-white">{t.errorPrefix}</span> {message}
       </p>
-      <p className="mt-1 text-xs text-zinc-500">
-        Sjekk PDGA-nummeret, eller bruk manuell modus for å legge inn runder
-        direkte.
-      </p>
+      <p className="mt-1 text-xs text-zinc-500">{t.errorHint}</p>
     </div>
   );
 }
+
+// ─── AdBanner ─────────────────────────────────────────────────────────────────
 
 declare global {
   interface Window {
@@ -1254,14 +1509,13 @@ declare global {
 
 function AdBanner({ clientId, slotId }: { clientId: string; slotId: string }) {
   const pushed = useRef(false);
-
   useEffect(() => {
     if (pushed.current) return;
     try {
       (window.adsbygoogle = window.adsbygoogle || []).push({});
       pushed.current = true;
     } catch {
-      // AdSense not loaded yet or blocked
+      // AdSense not loaded or blocked
     }
   }, []);
 
