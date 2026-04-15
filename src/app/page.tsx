@@ -97,6 +97,24 @@ interface Translations {
   newRoundEventName: string;
   simRoundName: (n: number) => string;
   manualRoundName: (n: number) => string;
+  dangerZoneTitle: string;
+  dangerZoneShootUnder: (n: number) => string;
+  dangerZoneDistanceSafe: (n: number) => string;
+  dangerZoneInDanger: string;
+  dangerZoneDrop: string;
+  dangerZoneBorderline: string;
+  dangerZoneSafe: string;
+  dangerZoneSimRound: string;
+  consistencyTitle: string;
+  consistencyScore: string;
+  consistencyBest: string;
+  consistencyWorst: string;
+  consistencySpread: string;
+  consistencyMsgVeryConsistent: string;
+  consistencyMsgSolid: string;
+  consistencyMsgSomeInconsistency: string;
+  consistencyMsgHighVariance: string;
+  consistencyAvg: string;
 }
 
 const translations: Record<Lang, Translations> = {
@@ -185,6 +203,24 @@ const translations: Record<Lang, Translations> = {
     newRoundEventName: "Ny runde",
     simRoundName: (n) => `Sim. runde ${n}`,
     manualRoundName: (n) => `Runde ${n}`,
+    dangerZoneTitle: "Faresone",
+    dangerZoneShootUnder: (n) => `Skyt under ${n} → ratingen faller`,
+    dangerZoneDistanceSafe: (n) => `Du er ${n} poeng fra faresonen`,
+    dangerZoneInDanger: "Du er i faresonen",
+    dangerZoneDrop: "Fall",
+    dangerZoneBorderline: "Grense",
+    dangerZoneSafe: "Trygg",
+    dangerZoneSimRound: "Sim. runde",
+    consistencyTitle: "Konsistens",
+    consistencyScore: "Poengsum",
+    consistencyBest: "Beste",
+    consistencyWorst: "Svakeste",
+    consistencySpread: "Spredning",
+    consistencyMsgVeryConsistent: "Svært konsistent",
+    consistencyMsgSolid: "Solid konsistens",
+    consistencyMsgSomeInconsistency: "Noe inkonsistent",
+    consistencyMsgHighVariance: "Høy varians skader ratingen",
+    consistencyAvg: "Snitt",
   },
   en: {
     title: "PDGA Rating Calculator",
@@ -271,6 +307,24 @@ const translations: Record<Lang, Translations> = {
     newRoundEventName: "New round",
     simRoundName: (n) => `Sim round ${n}`,
     manualRoundName: (n) => `Round ${n}`,
+    dangerZoneTitle: "Danger Zone",
+    dangerZoneShootUnder: (n) => `Shoot under ${n} → rating drops`,
+    dangerZoneDistanceSafe: (n) => `You are ${n} points from danger`,
+    dangerZoneInDanger: "You are in the danger zone",
+    dangerZoneDrop: "Drop",
+    dangerZoneBorderline: "Borderline",
+    dangerZoneSafe: "Safe",
+    dangerZoneSimRound: "Sim round",
+    consistencyTitle: "Consistency",
+    consistencyScore: "Score",
+    consistencyBest: "Best",
+    consistencyWorst: "Worst",
+    consistencySpread: "Spread",
+    consistencyMsgVeryConsistent: "Very consistent",
+    consistencyMsgSolid: "Solid consistency",
+    consistencyMsgSomeInconsistency: "Some inconsistency",
+    consistencyMsgHighVariance: "High variance hurting rating",
+    consistencyAvg: "Avg",
   },
 };
 
@@ -292,6 +346,10 @@ function createNewRound(nextId: React.MutableRefObject<number>): NewRound {
   return { id: nextId.current++, rating: "" };
 }
 
+function truncName(name: string, max = 45): string {
+  return name.length > max ? name.slice(0, max - 2) + ".." : name;
+}
+
 // ─── Home ─────────────────────────────────────────────────────────────────────
 
 export default function Home() {
@@ -299,6 +357,19 @@ export default function Home() {
   const [playerData, setPlayerData] = useState<PlayerData | null>(null);
   const [lang, setLang] = useState<Lang>("no");
   const t = translations[lang];
+
+  useEffect(() => {
+    const saved = localStorage.getItem("lang") as Lang | null;
+    if (saved === "no" || saved === "en") setLang(saved);
+  }, []);
+
+  function toggleLang() {
+    setLang((prev) => {
+      const next = prev === "no" ? "en" : "no";
+      localStorage.setItem("lang", next);
+      return next;
+    });
+  }
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "fetch", label: t.tabFetch },
@@ -317,13 +388,13 @@ export default function Home() {
         <header className="border-b border-zinc-800 bg-zinc-900">
           <div className="mx-auto max-w-4xl px-4 sm:px-6 py-5 flex items-start justify-between gap-4">
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+              <h1 className="text-xl sm:text-2xl font-heading tracking-tight text-white">
                 {t.title}
               </h1>
               <p className="mt-1 text-sm text-zinc-400">{t.subtitle}</p>
             </div>
             <button
-              onClick={() => setLang((l) => (l === "no" ? "en" : "no"))}
+              onClick={toggleLang}
               className="flex-shrink-0 mt-1 flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 transition-colors px-3 py-1.5 text-xs font-semibold text-zinc-300 cursor-pointer"
               title={lang === "no" ? "Switch to English" : "Bytt til norsk"}
             >
@@ -339,7 +410,7 @@ export default function Home() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 sm:flex-none px-4 py-3 text-sm font-medium border-b-2 transition-colors cursor-pointer ${
+                className={`flex-1 sm:flex-none px-4 py-3 text-sm font-subheading border-b-2 transition-colors cursor-pointer ${
                   activeTab === tab.id
                     ? "border-white text-white"
                     : "border-transparent text-zinc-500 hover:text-zinc-300"
@@ -392,6 +463,11 @@ function FetchMode({
   const [ratingDate, setRatingDate] = useState(getNextRatingUpdate());
   const nextIdRef = useRef(1);
 
+  useEffect(() => {
+    const saved = localStorage.getItem("pdgaNumber");
+    if (saved) setPdgaNumber(saved);
+  }, []);
+
   async function handleFetch() {
     const num = parseInt(pdgaNumber, 10);
     if (isNaN(num) || num <= 0) {
@@ -410,6 +486,7 @@ function FetchMode({
         return;
       }
       onPlayerData(data as PlayerData);
+      localStorage.setItem("pdgaNumber", pdgaNumber);
     } catch {
       setError(t.errorNetwork);
     } finally {
@@ -550,7 +627,7 @@ function FetchSubTabs({
           <button
             key={tab.id}
             onClick={() => setSubTab(tab.id)}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors cursor-pointer ${
+            className={`px-4 py-2.5 text-sm font-subheading border-b-2 transition-colors cursor-pointer ${
               subTab === tab.id
                 ? "border-white text-white"
                 : "border-transparent text-zinc-500 hover:text-zinc-300"
@@ -578,6 +655,14 @@ function FetchSubTabs({
             {t.calculateButton}
           </button>
           {result && <ResultSummary result={result} playerData={playerData} />}
+          {result && (
+            <DangerZone
+              playerData={playerData}
+              result={result}
+              ratingDate={ratingDate}
+            />
+          )}
+          {result && <ConsistencyCard result={result} />}
           <RoundsTable
             rounds={result?.rounds ?? null}
             allRounds={playerData.rounds}
@@ -698,6 +783,36 @@ function nthWeekday(year: number, month: number, weekday: number, n: number): Da
   const firstDay = first.getDay();
   const offset = ((weekday - firstDay + 7) % 7) + (n - 1) * 7;
   return new Date(year, month, 1 + offset);
+}
+
+// ─── Danger Zone logic ────────────────────────────────────────────────────────
+
+function findDangerThreshold(
+  existingRounds: { eventName: string; date: string; roundRating: number }[],
+  currentRating: number,
+  refDate: string,
+  t: Translations
+): number {
+  let lo = 500;
+  let hi = 1150;
+  let threshold = 500;
+
+  for (let iter = 0; iter < 50; iter++) {
+    const mid = Math.round((lo + hi) / 2);
+    const simRounds = [
+      ...existingRounds.map((r) => ({ ...r, isNew: false })),
+      { eventName: t.dangerZoneSimRound, date: refDate, roundRating: mid, isNew: true },
+    ];
+    const result = calculateRating(simRounds, { referenceDate: refDate });
+    if (result.calculatedRating >= currentRating) {
+      threshold = mid;
+      hi = mid - 1;
+    } else {
+      lo = mid + 1;
+    }
+  }
+
+  return threshold;
 }
 
 // ─── GoalSection ──────────────────────────────────────────────────────────────
@@ -840,11 +955,11 @@ function GoalSection({ playerData }: { playerData: PlayerData }) {
             <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
               <div>
                 <dt className="text-xs text-zinc-500">{t.currentProjected}</dt>
-                <dd className="text-xl font-bold text-zinc-200">{currentRating}</dd>
+                <dd className="text-xl font-subheading text-zinc-200">{currentRating}</dd>
               </div>
               <div>
                 <dt className="text-xs text-zinc-500">{t.target}</dt>
-                <dd className="text-xl font-bold text-white">{targetRating}</dd>
+                <dd className="text-xl font-subheading text-white">{targetRating}</dd>
               </div>
             </dl>
           </div>
@@ -868,7 +983,7 @@ function GoalSection({ playerData }: { playerData: PlayerData }) {
                 >
                   <div className="px-4 py-3 border-b border-zinc-800 bg-zinc-800/50 flex items-center justify-between">
                     <div>
-                      <h3 className="text-sm font-semibold text-white">{pace.label}</h3>
+                      <h3 className="text-sm font-subheading text-white">{pace.label}</h3>
                       <p className="text-xs text-zinc-500">
                         {pace.roundCount} {t.newRoundsUnit}
                       </p>
@@ -880,7 +995,7 @@ function GoalSection({ playerData }: { playerData: PlayerData }) {
                       <>
                         <div>
                           <dt className="text-xs text-zinc-500">{t.avgNeeded}</dt>
-                          <dd className="text-2xl font-bold text-white font-mono">
+                          <dd className="text-2xl font-subheading text-white font-mono">
                             {pace.requiredAvg}
                           </dd>
                         </div>
@@ -967,6 +1082,259 @@ function GoalSection({ playerData }: { playerData: PlayerData }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── DangerZone ───────────────────────────────────────────────────────────────
+
+function DangerZone({
+  playerData,
+  result,
+  ratingDate,
+}: {
+  playerData: PlayerData;
+  result: CalculationResult;
+  ratingDate: string;
+}) {
+  const t = useT();
+
+  const existingRounds = playerData.rounds
+    .filter((r) => r.evaluated && r.included)
+    .map((r) => ({ eventName: r.eventName, date: r.date, roundRating: r.roundRating }));
+
+  const threshold = findDangerThreshold(
+    existingRounds,
+    result.calculatedRating,
+    ratingDate,
+    t
+  );
+
+  const lastRoundRating = result.rounds.find(
+    (r) => r.inWindow && !r.isOutlier
+  )?.roundRating;
+  const distanceFromDanger = lastRoundRating != null ? lastRoundRating - threshold : null;
+
+  const chipRed = threshold - 20;
+  const chipYellow = threshold;
+  const chipGreen = threshold + 20;
+
+  return (
+    <div className="rounded-lg border border-amber-900/40 bg-zinc-900 overflow-hidden">
+      <div className="px-4 py-3 border-b border-zinc-800 bg-amber-950/30 flex items-center gap-2">
+        <span className="text-amber-400 text-lg">&#9888;</span>
+        <h3 className="text-sm font-subheading text-amber-200">{t.dangerZoneTitle}</h3>
+      </div>
+      <div className="p-4 space-y-4">
+        <p className="text-sm text-zinc-300">
+          {t.dangerZoneShootUnder(threshold)}
+        </p>
+
+        <div className="flex items-center gap-3 justify-center">
+          <div className="flex flex-col items-center gap-1">
+            <span className="inline-flex items-center justify-center rounded-lg bg-red-900/50 border border-red-800/60 px-3 py-2 font-mono text-base font-bold text-red-300 min-w-[64px]">
+              {chipRed}
+            </span>
+            <span className="text-[10px] text-red-400/70">{t.dangerZoneDrop}</span>
+          </div>
+          <div className="flex flex-col items-center gap-1">
+            <span className="inline-flex items-center justify-center rounded-lg bg-amber-900/50 border border-amber-700/60 px-3 py-2 font-mono text-base font-bold text-amber-300 min-w-[64px]">
+              {chipYellow}
+            </span>
+            <span className="text-[10px] text-amber-400/70">{t.dangerZoneBorderline}</span>
+          </div>
+          <div className="flex flex-col items-center gap-1">
+            <span className="inline-flex items-center justify-center rounded-lg bg-emerald-900/50 border border-emerald-700/60 px-3 py-2 font-mono text-base font-bold text-emerald-300 min-w-[64px]">
+              {chipGreen}
+            </span>
+            <span className="text-[10px] text-emerald-400/70">{t.dangerZoneSafe}</span>
+          </div>
+        </div>
+
+        {distanceFromDanger != null && (
+          <p className={`text-center text-sm font-medium ${
+            distanceFromDanger <= 0
+              ? "text-red-400"
+              : distanceFromDanger <= 20
+                ? "text-amber-400"
+                : "text-zinc-400"
+          }`}>
+            {distanceFromDanger <= 0
+              ? t.dangerZoneInDanger
+              : t.dangerZoneDistanceSafe(distanceFromDanger)}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Consistency Score ────────────────────────────────────────────────────────
+
+interface ConsistencyData {
+  score: number;
+  best: number;
+  worst: number;
+  spread: number;
+  mean: number;
+  stdDev: number;
+  ratings: number[];
+}
+
+function computeConsistency(rounds: CalculatedRound[]): ConsistencyData | null {
+  const included = rounds.filter((r) => r.inWindow && !r.isOutlier);
+  if (included.length < 3) return null;
+  const ratings = included.map((r) => r.roundRating);
+  const mean = ratings.reduce((s, v) => s + v, 0) / ratings.length;
+  const squaredDiffs = ratings.map((v) => (v - mean) ** 2);
+  const stdDev = Math.sqrt(squaredDiffs.reduce((s, v) => s + v, 0) / ratings.length);
+  const score = Math.round(Math.max(0, Math.min(100, 100 - stdDev * 2.5)));
+  return {
+    score,
+    best: Math.max(...ratings),
+    worst: Math.min(...ratings),
+    spread: Math.max(...ratings) - Math.min(...ratings),
+    mean: Math.round(mean),
+    stdDev: Math.round(stdDev * 10) / 10,
+    ratings: included.slice(0, 20).map((r) => r.roundRating),
+  };
+}
+
+function getConsistencyMessage(score: number, t: Translations): string {
+  if (score >= 85) return t.consistencyMsgVeryConsistent;
+  if (score >= 70) return t.consistencyMsgSolid;
+  if (score >= 50) return t.consistencyMsgSomeInconsistency;
+  return t.consistencyMsgHighVariance;
+}
+
+function getConsistencyColor(score: number): string {
+  if (score >= 85) return "text-emerald-400";
+  if (score >= 70) return "text-sky-400";
+  if (score >= 50) return "text-amber-400";
+  return "text-red-400";
+}
+
+function getConsistencyBarColor(score: number): string {
+  if (score >= 85) return "bg-emerald-500";
+  if (score >= 70) return "bg-sky-500";
+  if (score >= 50) return "bg-amber-500";
+  return "bg-red-500";
+}
+
+function ConsistencyCard({ result }: { result: CalculationResult }) {
+  const t = useT();
+  const data = computeConsistency(result.rounds);
+  if (!data) return null;
+
+  const message = getConsistencyMessage(data.score, t);
+  const scoreColor = getConsistencyColor(data.score);
+  const barColor = getConsistencyBarColor(data.score);
+
+  const chartRatings = data.ratings;
+  const chartMin = Math.min(...chartRatings) - 10;
+  const chartMax = Math.max(...chartRatings) + 10;
+  const chartRange = chartMax - chartMin || 1;
+
+  const svgW = 320;
+  const svgH = 80;
+  const barW = Math.max(4, Math.min(14, (svgW - 20) / chartRatings.length - 2));
+  const totalBarsW = chartRatings.length * (barW + 2);
+  const offsetX = (svgW - totalBarsW) / 2;
+
+  const meanY = svgH - ((data.mean - chartMin) / chartRange) * svgH;
+
+  return (
+    <div className="rounded-lg border border-zinc-800 bg-zinc-900 overflow-hidden">
+      <div className="px-4 py-3 border-b border-zinc-800 bg-zinc-800/50 flex items-center justify-between">
+        <h3 className="text-sm font-subheading text-white">{t.consistencyTitle}</h3>
+        <div className="flex items-baseline gap-1.5">
+          <span className={`text-2xl font-subheading ${scoreColor}`}>{data.score}</span>
+          <span className="text-xs text-zinc-500">/100</span>
+        </div>
+      </div>
+      <div className="p-4 space-y-4">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-zinc-400">{message}</span>
+            <span className="text-zinc-500 font-mono">{data.score}%</span>
+          </div>
+          <div className="h-2.5 rounded-full bg-zinc-800 overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+              style={{ width: `${data.score}%` }}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-4 gap-3 text-center">
+          <div>
+            <dt className="text-[10px] text-zinc-500 uppercase tracking-wider">{t.consistencyBest}</dt>
+            <dd className="text-lg font-subheading text-emerald-400 font-mono">{data.best}</dd>
+          </div>
+          <div>
+            <dt className="text-[10px] text-zinc-500 uppercase tracking-wider">{t.consistencyWorst}</dt>
+            <dd className="text-lg font-subheading text-red-400 font-mono">{data.worst}</dd>
+          </div>
+          <div>
+            <dt className="text-[10px] text-zinc-500 uppercase tracking-wider">{t.consistencySpread}</dt>
+            <dd className="text-lg font-subheading text-zinc-300 font-mono">{data.spread}</dd>
+          </div>
+          <div>
+            <dt className="text-[10px] text-zinc-500 uppercase tracking-wider">{t.consistencyAvg}</dt>
+            <dd className="text-lg font-subheading text-zinc-300 font-mono">{data.mean}</dd>
+          </div>
+        </div>
+
+        {chartRatings.length >= 3 && (
+          <div className="flex justify-center">
+            <svg
+              viewBox={`0 0 ${svgW} ${svgH}`}
+              className="w-full max-w-[320px] h-auto"
+              preserveAspectRatio="xMidYMid meet"
+            >
+              <line
+                x1={0}
+                y1={meanY}
+                x2={svgW}
+                y2={meanY}
+                stroke="currentColor"
+                className="text-zinc-600"
+                strokeWidth="1"
+                strokeDasharray="4 3"
+              />
+              {chartRatings.map((rating, i) => {
+                const barH = ((rating - chartMin) / chartRange) * (svgH - 4);
+                const x = offsetX + i * (barW + 2);
+                const y = svgH - barH;
+                const isAboveMean = rating >= data.mean;
+                const fill = isAboveMean ? "#34d399" : rating < data.mean - data.stdDev ? "#f87171" : "#fbbf24";
+
+                return (
+                  <rect
+                    key={i}
+                    x={x}
+                    y={y}
+                    width={barW}
+                    height={Math.max(barH, 2)}
+                    rx={2}
+                    fill={fill}
+                    opacity={0.8}
+                  />
+                );
+              })}
+              <text
+                x={svgW - 2}
+                y={meanY - 3}
+                textAnchor="end"
+                className="fill-zinc-500"
+                fontSize="9"
+              >
+                {data.mean}
+              </text>
+            </svg>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -1095,15 +1463,15 @@ function ManualMode() {
             <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3">
               <div>
                 <dt className="text-xs text-zinc-500">{t.calculatedRatingLabel}</dt>
-                <dd className="text-2xl font-bold text-white">{result.calculatedRating}</dd>
+                <dd className="text-2xl font-subheading text-white">{result.calculatedRating}</dd>
               </div>
               <div>
                 <dt className="text-xs text-zinc-500">{t.roundsUsedLabel}</dt>
-                <dd className="text-2xl font-bold text-white">{result.roundsUsed}</dd>
+                <dd className="text-2xl font-subheading text-white">{result.roundsUsed}</dd>
               </div>
               <div>
                 <dt className="text-xs text-zinc-500">{t.windowLabel}</dt>
-                <dd className="text-2xl font-bold text-white">
+                <dd className="text-2xl font-subheading text-white">
                   {result.windowMonths} {t.months}
                 </dd>
               </div>
@@ -1140,7 +1508,7 @@ function PlayerInfo({ data }: { data: PlayerData }) {
               href={`https://www.pdga.com/player/${data.pdgaNumber}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-lg font-semibold text-white hover:text-zinc-300 hover:underline transition-colors"
+              className="text-lg font-subheading text-white hover:text-zinc-300 hover:underline transition-colors"
             >
               {data.playerName}
             </a>
@@ -1181,20 +1549,20 @@ function ResultSummary({
       <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
         <div>
           <dt className="text-xs text-zinc-500">{t.official}</dt>
-          <dd className="text-xl sm:text-2xl font-bold text-zinc-200">
+          <dd className="text-xl sm:text-2xl font-subheading text-zinc-200">
             {playerData.officialRating ?? "N/A"}
           </dd>
         </div>
         <div>
           <dt className="text-xs text-zinc-500">{t.calculated}</dt>
-          <dd className="text-xl sm:text-2xl font-bold text-white">
+          <dd className="text-xl sm:text-2xl font-subheading text-white">
             {result.calculatedRating}
           </dd>
         </div>
         <div>
           <dt className="text-xs text-zinc-500">{t.difference}</dt>
           <dd
-            className={`text-xl sm:text-2xl font-bold ${
+            className={`text-xl sm:text-2xl font-subheading ${
               diff != null && diff > 0
                 ? "text-zinc-100"
                 : diff != null && diff < 0
@@ -1207,7 +1575,7 @@ function ResultSummary({
         </div>
         <div>
           <dt className="text-xs text-zinc-500">{t.rounds}</dt>
-          <dd className="text-xl sm:text-2xl font-bold text-zinc-200">
+          <dd className="text-xl sm:text-2xl font-subheading text-zinc-200">
             {result.roundsUsed}
             <span className="text-sm font-normal text-zinc-600">
               {" "}/ {result.totalRoundsConsidered}
@@ -1266,7 +1634,7 @@ function RoundsTable({
                         !r.evaluated ? "text-zinc-600 bg-zinc-950/30" : "text-zinc-300"
                       }`}
                     >
-                      <td className="px-3 py-2 max-w-[150px] sm:max-w-none truncate">{r.eventName}</td>
+                      <td className="px-3 py-2">{truncName(r.eventName)}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{r.date}</td>
                       <td className="px-3 py-2 font-mono">{r.roundRating}</td>
                       <td className="px-3 py-2 hidden sm:table-cell">{r.tier}</td>
@@ -1298,7 +1666,7 @@ function RoundsTable({
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-medium text-zinc-400">{t.roundDetails}</h3>
+      <h3 className="text-sm font-subheading text-zinc-400">{t.roundDetails}</h3>
       <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-zinc-500">
         <span className="flex items-center gap-1">
           <span className="inline-block w-3 h-3 rounded-sm bg-emerald-900/60 border border-emerald-700/50" />
@@ -1341,14 +1709,14 @@ function RoundsTable({
                     className={`border-b border-zinc-800/50 last:border-0 ${rowColor(r)}`}
                   >
                     <td
-                      className={`px-3 py-2.5 max-w-[120px] sm:max-w-none truncate ${
+                      className={`px-3 py-2.5 ${
                         r.isOutlier ? "line-through text-zinc-600" : "text-zinc-300"
                       }`}
                     >
                       {r.isNew && (
                         <span className="inline-block w-1.5 h-1.5 rounded-full bg-sky-400 mr-1.5 align-middle" />
                       )}
-                      {r.eventName}
+                      {truncName(r.eventName)}
                     </td>
                     <td className="px-3 py-2.5 whitespace-nowrap text-zinc-500">{r.date}</td>
                     <td
