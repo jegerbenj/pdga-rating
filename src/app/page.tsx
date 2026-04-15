@@ -1013,13 +1013,18 @@ function RoundsTable({
                 </thead>
                 <tbody>
                   {visible.map((r, i) => (
-                    <tr key={i} className="border-b border-zinc-800/50 last:border-0 text-zinc-300">
+                    <tr
+                      key={i}
+                      className={`border-b border-zinc-800/50 last:border-0 ${
+                        !r.evaluated ? "text-zinc-600 bg-zinc-950/30" : "text-zinc-300"
+                      }`}
+                    >
                       <td className="px-3 py-2 max-w-[150px] sm:max-w-none truncate">{r.eventName}</td>
-                      <td className="px-3 py-2 whitespace-nowrap text-zinc-400">{r.date}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{r.date}</td>
                       <td className="px-3 py-2 font-mono">{r.roundRating}</td>
-                      <td className="px-3 py-2 hidden sm:table-cell text-zinc-400">{r.tier}</td>
-                      <td className="px-3 py-2 hidden sm:table-cell text-zinc-400">{r.evaluated ? "Ja" : "Nei"}</td>
-                      <td className="px-3 py-2 hidden sm:table-cell text-zinc-400">{r.included ? "Ja" : "Nei"}</td>
+                      <td className="px-3 py-2 hidden sm:table-cell">{r.tier}</td>
+                      <td className="px-3 py-2 hidden sm:table-cell">{r.evaluated ? "Ja" : "Nei"}</td>
+                      <td className="px-3 py-2 hidden sm:table-cell">{r.included ? "Ja" : "Nei"}</td>
                     </tr>
                   ))}
                 </tbody>
