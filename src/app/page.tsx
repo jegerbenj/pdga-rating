@@ -216,20 +216,85 @@ function FetchMode({
       {error && <ErrorMessage message={error} />}
 
       {playerData && (
-        <div className="space-y-5">
-          <PlayerInfo data={playerData} />
+        <FetchSubTabs
+          playerData={playerData}
+          result={result}
+          newRounds={newRounds}
+          ratingDate={ratingDate}
+          onDateChange={setRatingDate}
+          onAddRound={handleAddRound}
+          onRemoveRound={handleRemoveRound}
+          onUpdateRound={handleUpdateRound}
+          onCalculate={handleCalculate}
+        />
+      )}
+    </div>
+  );
+}
 
+type FetchSubTab = "calculate" | "goal";
+
+function FetchSubTabs({
+  playerData,
+  result,
+  newRounds,
+  ratingDate,
+  onDateChange,
+  onAddRound,
+  onRemoveRound,
+  onUpdateRound,
+  onCalculate,
+}: {
+  playerData: PlayerData;
+  result: CalculationResult | null;
+  newRounds: NewRound[];
+  ratingDate: string;
+  onDateChange: (value: string) => void;
+  onAddRound: () => void;
+  onRemoveRound: (id: number) => void;
+  onUpdateRound: (id: number, value: string) => void;
+  onCalculate: () => void;
+}) {
+  const [subTab, setSubTab] = useState<FetchSubTab>("calculate");
+
+  const subTabs: { id: FetchSubTab; label: string }[] = [
+    { id: "calculate", label: "Beregn rating" },
+    { id: "goal", label: "Målsetting" },
+  ];
+
+  return (
+    <div className="space-y-5">
+      <PlayerInfo data={playerData} />
+
+      <div className="flex border-b border-zinc-800">
+        {subTabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setSubTab(tab.id)}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors cursor-pointer ${
+              subTab === tab.id
+                ? "border-white text-white"
+                : "border-transparent text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {subTab === "calculate" && (
+        <div className="space-y-5">
           <NewRoundsInput
             rounds={newRounds}
             ratingDate={ratingDate}
-            onDateChange={setRatingDate}
-            onAdd={handleAddRound}
-            onRemove={handleRemoveRound}
-            onUpdate={handleUpdateRound}
+            onDateChange={onDateChange}
+            onAdd={onAddRound}
+            onRemove={onRemoveRound}
+            onUpdate={onUpdateRound}
           />
 
           <button
-            onClick={handleCalculate}
+            onClick={onCalculate}
             className="w-full sm:w-auto rounded-lg bg-white text-zinc-900 px-6 py-3 text-sm font-semibold hover:bg-zinc-200 active:bg-zinc-300 transition-colors min-h-[48px]"
           >
             Beregn rating
@@ -241,10 +306,10 @@ function FetchMode({
             rounds={result?.rounds ?? null}
             allRounds={playerData.rounds}
           />
-
-          <GoalSection playerData={playerData} />
         </div>
       )}
+
+      {subTab === "goal" && <GoalSection playerData={playerData} />}
     </div>
   );
 }
@@ -486,11 +551,7 @@ function GoalSection({ playerData }: { playerData: PlayerData }) {
   }
 
   return (
-    <div className="space-y-5 border-t border-zinc-800 pt-6">
-      <h3 className="text-sm font-semibold text-zinc-300 uppercase tracking-wide">
-        Målsetting
-      </h3>
-
+    <div className="space-y-5">
       <div className="flex gap-3 items-end">
         <div className="flex-1">
           <label
