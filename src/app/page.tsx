@@ -15,7 +15,10 @@ type Lang = "no" | "en";
 interface Translations {
   title: string;
   subtitle: string;
-  tabFetch: string;
+  tabSearch: string;
+  tabAnalyse: string;
+  tabCompare: string;
+  tabTournaments: string;
   tabManual: string;
   pdgaNumberLabel: string;
   pdgaPlaceholder: string;
@@ -115,13 +118,32 @@ interface Translations {
   consistencyMsgSomeInconsistency: string;
   consistencyMsgHighVariance: string;
   consistencyAvg: string;
+  // New tab labels
+  noPlayerFetched: string;
+  noResultYet: string;
+  compareTitle: string;
+  comparePdga1Label: string;
+  comparePdga2Label: string;
+  compareButton: string;
+  compareComparingText: string;
+  compareFetchError: string;
+  compareRating: string;
+  compareRounds: string;
+  tournamentsTitle: string;
+  tournamentsDescription: string;
+  tournamentsOpen: string;
+  manualModeSwitch: string;
+  manualModeBack: string;
 }
 
 const translations: Record<Lang, Translations> = {
   no: {
     title: "PDGA Rating-kalkulator",
     subtitle: "Beregn rating fra ratede runder basert på PDGA-regler",
-    tabFetch: "PDGA-søk",
+    tabSearch: "Søk",
+    tabAnalyse: "Analyse",
+    tabCompare: "Sammenligne",
+    tabTournaments: "Turneringer",
     tabManual: "Manuell",
     pdgaNumberLabel: "PDGA-nummer",
     pdgaPlaceholder: "f.eks. 281989",
@@ -221,11 +243,29 @@ const translations: Record<Lang, Translations> = {
     consistencyMsgSomeInconsistency: "Noe inkonsistent",
     consistencyMsgHighVariance: "Høy varians skader ratingen",
     consistencyAvg: "Snitt",
+    noPlayerFetched: "Søk etter en spiller for å komme i gang.",
+    noResultYet: "Beregn rating i Søk-fanen for å se analyse her.",
+    compareTitle: "Sammenligne spillere",
+    comparePdga1Label: "Spiller 1",
+    comparePdga2Label: "Spiller 2",
+    compareButton: "Sammenligne",
+    compareComparingText: "Henter...",
+    compareFetchError: "Kunne ikke hente spiller",
+    compareRating: "Offisiell rating",
+    compareRounds: "Ratede runder",
+    tournamentsTitle: "Finn turneringer",
+    tournamentsDescription: "Søk etter og finn disc golf-turneringer i Norge og Europa på discgolfscene.com.",
+    tournamentsOpen: "Åpne discgolfscene.com",
+    manualModeSwitch: "Bruk manuell inndata",
+    manualModeBack: "← Tilbake til PDGA-søk",
   },
   en: {
     title: "PDGA Rating Calculator",
     subtitle: "Calculate ratings from rated rounds using PDGA rules",
-    tabFetch: "PDGA Search",
+    tabSearch: "Search",
+    tabAnalyse: "Analyse",
+    tabCompare: "Compare",
+    tabTournaments: "Tournaments",
     tabManual: "Manual",
     pdgaNumberLabel: "PDGA Number",
     pdgaPlaceholder: "e.g. 281989",
@@ -325,6 +365,21 @@ const translations: Record<Lang, Translations> = {
     consistencyMsgSomeInconsistency: "Some inconsistency",
     consistencyMsgHighVariance: "High variance hurting rating",
     consistencyAvg: "Avg",
+    noPlayerFetched: "Search for a player to get started.",
+    noResultYet: "Calculate rating in the Search tab to see analysis here.",
+    compareTitle: "Compare players",
+    comparePdga1Label: "Player 1",
+    comparePdga2Label: "Player 2",
+    compareButton: "Compare",
+    compareComparingText: "Fetching...",
+    compareFetchError: "Could not fetch player",
+    compareRating: "Official rating",
+    compareRounds: "Rated rounds",
+    tournamentsTitle: "Find tournaments",
+    tournamentsDescription: "Search for and find disc golf tournaments in Norway and Europe on discgolfscene.com.",
+    tournamentsOpen: "Open discgolfscene.com",
+    manualModeSwitch: "Use manual input",
+    manualModeBack: "← Back to PDGA search",
   },
 };
 
@@ -335,7 +390,7 @@ function useT(): Translations {
 
 // ─── Types & helpers ──────────────────────────────────────────────────────────
 
-type Tab = "manual" | "fetch";
+type TopTab = "search" | "analyse" | "compare" | "tournaments";
 
 interface NewRound {
   id: number;
@@ -353,8 +408,10 @@ function truncName(name: string, max = 45): string {
 // ─── Home ─────────────────────────────────────────────────────────────────────
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<Tab>("fetch");
+  const [activeTab, setActiveTab] = useState<TopTab>("search");
   const [playerData, setPlayerData] = useState<PlayerData | null>(null);
+  const [result, setResult] = useState<CalculationResult | null>(null);
+  const [ratingDate, setRatingDate] = useState(getNextRatingUpdate());
   const [lang, setLang] = useState<Lang>("no");
   const t = translations[lang];
 
@@ -371,11 +428,6 @@ export default function Home() {
     });
   }
 
-  const tabs: { id: Tab; label: string }[] = [
-    { id: "fetch", label: t.tabFetch },
-    { id: "manual", label: t.tabManual },
-  ];
-
   return (
     <LangContext.Provider value={lang}>
       <div className="flex flex-col min-h-full bg-zinc-950 text-zinc-100">
@@ -385,17 +437,17 @@ export default function Home() {
             slotId={process.env.NEXT_PUBLIC_ADSENSE_SLOT_ID ?? ""}
           />
         )}
-        <header className="border-b border-zinc-800 bg-zinc-900">
-          <div className="mx-auto max-w-4xl px-4 sm:px-6 py-5 flex items-start justify-between gap-4">
+
+        <header className="border-b border-zinc-800 bg-zinc-900 sticky top-0 z-10">
+          <div className="mx-auto max-w-4xl px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
             <div>
-              <h1 className="text-xl sm:text-2xl font-heading tracking-tight text-white">
+              <h1 className="text-lg sm:text-xl font-heading tracking-tight text-white">
                 {t.title}
               </h1>
-              <p className="mt-1 text-sm text-zinc-400">{t.subtitle}</p>
             </div>
             <button
               onClick={toggleLang}
-              className="flex-shrink-0 mt-1 flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 transition-colors px-3 py-1.5 text-xs font-semibold text-zinc-300 cursor-pointer"
+              className="flex-shrink-0 flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 transition-colors px-3 py-1.5 text-xs font-semibold text-zinc-300 cursor-pointer"
               title={lang === "no" ? "Switch to English" : "Bytt til norsk"}
             >
               <span className="text-base leading-none">{lang === "no" ? "🇳🇴" : "🇬🇧"}</span>
@@ -404,44 +456,127 @@ export default function Home() {
           </div>
         </header>
 
-        <main className="flex-1 mx-auto w-full max-w-4xl px-4 sm:px-6 py-5">
-          <div className="flex border-b border-zinc-800 mb-5">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 sm:flex-none px-4 py-3 text-sm font-subheading border-b-2 transition-colors cursor-pointer ${
-                  activeTab === tab.id
-                    ? "border-white text-white"
-                    : "border-transparent text-zinc-500 hover:text-zinc-300"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {activeTab === "fetch" && (
-            <FetchMode playerData={playerData} onPlayerData={setPlayerData} />
+        <main className="flex-1 mx-auto w-full max-w-4xl px-4 sm:px-6 py-5 pb-24">
+          {activeTab === "search" && (
+            <FetchMode
+              playerData={playerData}
+              onPlayerData={(data) => {
+                setPlayerData(data);
+                if (!data) setResult(null);
+              }}
+              result={result}
+              onResult={setResult}
+              ratingDate={ratingDate}
+              onDateChange={setRatingDate}
+            />
           )}
-          {activeTab === "manual" && <ManualMode />}
+          {activeTab === "analyse" && (
+            <AnalyseTab
+              playerData={playerData}
+              result={result}
+              ratingDate={ratingDate}
+            />
+          )}
+          {activeTab === "compare" && <CompareTab />}
+          {activeTab === "tournaments" && <TournamentsTab />}
         </main>
 
-        <footer className="border-t border-zinc-800 bg-zinc-900 mt-auto">
-          <div className="mx-auto max-w-4xl px-4 py-4 flex flex-col items-center gap-2">
-            <a
-              href="https://www.hyzershop.no"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm font-medium text-zinc-300 hover:text-white transition-colors hover:underline"
-            >
-              hyzershop.no
-            </a>
-            <span className="text-xs text-zinc-600">{t.footerAttribution}</span>
-          </div>
-        </footer>
+        <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+
+        <div className="h-px bg-zinc-800" />
+        <div className="bg-zinc-900 text-center py-2">
+          <span className="text-xs text-zinc-600">{t.footerAttribution}</span>
+        </div>
       </div>
     </LangContext.Provider>
+  );
+}
+
+// ─── BottomNav ────────────────────────────────────────────────────────────────
+
+function BottomNav({
+  activeTab,
+  onTabChange,
+}: {
+  activeTab: TopTab;
+  onTabChange: (tab: TopTab) => void;
+}) {
+  const t = useT();
+
+  const items: { id: TopTab; label: string; icon: React.ReactNode }[] = [
+    {
+      id: "search",
+      label: t.tabSearch,
+      icon: (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+      ),
+    },
+    {
+      id: "analyse",
+      label: t.tabAnalyse,
+      icon: (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+        </svg>
+      ),
+    },
+    {
+      id: "compare",
+      label: t.tabCompare,
+      icon: (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      ),
+    },
+    {
+      id: "tournaments",
+      label: t.tabTournaments,
+      icon: (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+          <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+          <path d="M4 22h16" />
+          <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+          <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+          <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+        </svg>
+      ),
+    },
+  ];
+
+  return (
+    <nav className="fixed bottom-0 left-0 right-0 z-20 bg-zinc-900 border-t border-zinc-800 safe-bottom">
+      <div className="mx-auto max-w-4xl flex">
+        {items.map((item) => (
+          <button
+            key={item.id}
+            onClick={() => onTabChange(item.id)}
+            className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 transition-colors cursor-pointer ${
+              activeTab === item.id
+                ? "text-white"
+                : "text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            <span className={activeTab === item.id ? "text-white" : "text-zinc-500"}>
+              {item.icon}
+            </span>
+            <span className={`text-[10px] font-medium ${activeTab === item.id ? "text-white" : "text-zinc-500"}`}>
+              {item.label}
+            </span>
+            {activeTab === item.id && (
+              <span className="absolute bottom-0 w-8 h-0.5 bg-white rounded-full" />
+            )}
+          </button>
+        ))}
+      </div>
+    </nav>
   );
 }
 
@@ -450,17 +585,24 @@ export default function Home() {
 function FetchMode({
   playerData,
   onPlayerData,
+  result,
+  onResult,
+  ratingDate,
+  onDateChange,
 }: {
   playerData: PlayerData | null;
   onPlayerData: (data: PlayerData | null) => void;
+  result: CalculationResult | null;
+  onResult: (r: CalculationResult | null) => void;
+  ratingDate: string;
+  onDateChange: (value: string) => void;
 }) {
   const t = useT();
   const [pdgaNumber, setPdgaNumber] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<CalculationResult | null>(null);
   const [newRounds, setNewRounds] = useState<NewRound[]>([]);
-  const [ratingDate, setRatingDate] = useState(getNextRatingUpdate());
+  const [showManual, setShowManual] = useState(false);
   const nextIdRef = useRef(1);
 
   useEffect(() => {
@@ -477,7 +619,7 @@ function FetchMode({
     setLoading(true);
     setError(null);
     onPlayerData(null);
-    setResult(null);
+    onResult(null);
     try {
       const res = await fetch(`/api/pdga/${num}`);
       const data = await res.json();
@@ -528,10 +670,24 @@ function FetchMode({
       }))
       .filter((r) => !isNaN(r.roundRating));
     const allRounds = [...existingRounds, ...parsedNewRounds];
-    setResult(
+    onResult(
       calculateRating(allRounds, {
         referenceDate: parsedNewRounds.length > 0 ? ratingDate : undefined,
       })
+    );
+  }
+
+  if (showManual) {
+    return (
+      <div className="space-y-5">
+        <button
+          onClick={() => setShowManual(false)}
+          className="text-sm text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer"
+        >
+          {t.manualModeBack}
+        </button>
+        <ManualMode />
+      </div>
     );
   }
 
@@ -568,13 +724,22 @@ function FetchMode({
 
       {error && <ErrorMessage message={error} />}
 
+      {!playerData && !error && (
+        <button
+          onClick={() => setShowManual(true)}
+          className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
+        >
+          {t.manualModeSwitch} →
+        </button>
+      )}
+
       {playerData && (
         <FetchSubTabs
           playerData={playerData}
           result={result}
           newRounds={newRounds}
           ratingDate={ratingDate}
-          onDateChange={setRatingDate}
+          onDateChange={onDateChange}
           onAddRound={handleAddRound}
           onRemoveRound={handleRemoveRound}
           onUpdateRound={handleUpdateRound}
@@ -655,14 +820,6 @@ function FetchSubTabs({
             {t.calculateButton}
           </button>
           {result && <ResultSummary result={result} playerData={playerData} />}
-          {result && (
-            <DangerZone
-              playerData={playerData}
-              result={result}
-              ratingDate={ratingDate}
-            />
-          )}
-          {result && <ConsistencyCard result={result} />}
           <RoundsTable
             rounds={result?.rounds ?? null}
             allRounds={playerData.rounds}
@@ -671,6 +828,359 @@ function FetchSubTabs({
       )}
 
       {subTab === "goal" && <GoalSection playerData={playerData} />}
+    </div>
+  );
+}
+
+// ─── AnalyseTab ───────────────────────────────────────────────────────────────
+
+function AnalyseTab({
+  playerData,
+  result,
+  ratingDate,
+}: {
+  playerData: PlayerData | null;
+  result: CalculationResult | null;
+  ratingDate: string;
+}) {
+  const t = useT();
+
+  if (!playerData) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center space-y-3">
+        <div className="w-14 h-14 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-500">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+          </svg>
+        </div>
+        <p className="text-sm text-zinc-400 max-w-xs">{t.noPlayerFetched}</p>
+      </div>
+    );
+  }
+
+  if (!result) {
+    return (
+      <div className="space-y-5">
+        <PlayerInfo data={playerData} />
+        <div className="flex flex-col items-center justify-center py-12 text-center space-y-3">
+          <div className="w-14 h-14 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-500">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+            </svg>
+          </div>
+          <p className="text-sm text-zinc-400 max-w-xs">{t.noResultYet}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <PlayerInfo data={playerData} />
+      <DangerZone
+        playerData={playerData}
+        result={result}
+        ratingDate={ratingDate}
+      />
+      <ConsistencyCard result={result} />
+    </div>
+  );
+}
+
+// ─── CompareTab ───────────────────────────────────────────────────────────────
+
+function CompareTab() {
+  const t = useT();
+  const [pdga1, setPdga1] = useState("");
+  const [pdga2, setPdga2] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [player1, setPlayer1] = useState<PlayerData | null>(null);
+  const [player2, setPlayer2] = useState<PlayerData | null>(null);
+  const [error1, setError1] = useState<string | null>(null);
+  const [error2, setError2] = useState<string | null>(null);
+
+  async function fetchPlayer(num: string): Promise<PlayerData | null> {
+    const n = parseInt(num, 10);
+    if (isNaN(n) || n <= 0) return null;
+    const res = await fetch(`/api/pdga/${n}`);
+    if (!res.ok) return null;
+    return res.json();
+  }
+
+  async function handleCompare() {
+    setLoading(true);
+    setError1(null);
+    setError2(null);
+    setPlayer1(null);
+    setPlayer2(null);
+    const [p1, p2] = await Promise.all([
+      fetchPlayer(pdga1).catch(() => null),
+      fetchPlayer(pdga2).catch(() => null),
+    ]);
+    if (!p1 && pdga1) setError1(`${t.compareFetchError} #${pdga1}`);
+    if (!p2 && pdga2) setError2(`${t.compareFetchError} #${pdga2}`);
+    setPlayer1(p1);
+    setPlayer2(p2);
+    setLoading(false);
+  }
+
+  const refDate = getNextRatingUpdate();
+
+  function getCalcRating(p: PlayerData): number | null {
+    const rounds = p.rounds
+      .filter((r) => r.evaluated && r.included)
+      .map((r) => ({ eventName: r.eventName, date: r.date, roundRating: r.roundRating, isNew: false as const }));
+    if (rounds.length === 0) return null;
+    return calculateRating(rounds, { referenceDate: refDate }).calculatedRating;
+  }
+
+  const calc1 = player1 ? getCalcRating(player1) : null;
+  const calc2 = player2 ? getCalcRating(player2) : null;
+
+  return (
+    <div className="space-y-5">
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1.5">
+              {t.comparePdga1Label}
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              placeholder={t.pdgaPlaceholder}
+              value={pdga1}
+              onChange={(e) => setPdga1(e.target.value)}
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-600 px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-zinc-400"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1.5">
+              {t.comparePdga2Label}
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              placeholder={t.pdgaPlaceholder}
+              value={pdga2}
+              onChange={(e) => setPdga2(e.target.value)}
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-600 px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-zinc-400"
+            />
+          </div>
+        </div>
+        <button
+          onClick={handleCompare}
+          disabled={loading || (!pdga1 && !pdga2)}
+          className="w-full rounded-lg bg-white text-zinc-900 px-5 py-3 text-sm font-semibold hover:bg-zinc-200 active:bg-zinc-300 disabled:opacity-40 transition-colors min-h-[48px]"
+        >
+          {loading ? t.compareComparingText : t.compareButton}
+        </button>
+      </div>
+
+      {(error1 || error2) && (
+        <div className="space-y-2">
+          {error1 && <p className="text-sm text-red-400">{error1}</p>}
+          {error2 && <p className="text-sm text-red-400">{error2}</p>}
+        </div>
+      )}
+
+      {(player1 || player2) && (
+        <div className="space-y-4">
+          {/* Side-by-side ratings */}
+          {(calc1 !== null || calc2 !== null) && (
+            <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
+              <div className="grid grid-cols-2 gap-4 text-center">
+                <div>
+                  {player1 ? (
+                    <>
+                      <div className="text-3xl font-subheading text-white mb-1">{calc1 ?? "—"}</div>
+                      <div className="text-xs text-zinc-500">{player1.officialRating ? `${t.compareRating}: ${player1.officialRating}` : ""}</div>
+                    </>
+                  ) : <div className="text-3xl font-subheading text-zinc-700">—</div>}
+                </div>
+                <div>
+                  {player2 ? (
+                    <>
+                      <div className={`text-3xl font-subheading mb-1 ${
+                        calc1 !== null && calc2 !== null
+                          ? calc2 > calc1 ? "text-emerald-400" : calc2 < calc1 ? "text-red-400" : "text-white"
+                          : "text-white"
+                      }`}>{calc2 ?? "—"}</div>
+                      <div className="text-xs text-zinc-500">{player2.officialRating ? `${t.compareRating}: ${player2.officialRating}` : ""}</div>
+                    </>
+                  ) : <div className="text-3xl font-subheading text-zinc-700">—</div>}
+                </div>
+              </div>
+              {/* Rating bar */}
+              {calc1 !== null && calc2 !== null && (
+                <div className="mt-4">
+                  <CompareBar v1={calc1} v2={calc2} label1={player1?.playerName ?? ""} label2={player2?.playerName ?? ""} />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Player cards */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {player1 && <ComparePlayerCard player={player1} calcRating={calc1} isWinner={calc1 !== null && calc2 !== null && calc1 > calc2} />}
+            {player2 && <ComparePlayerCard player={player2} calcRating={calc2} isWinner={calc2 !== null && calc1 !== null && calc2 > calc1} />}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CompareBar({
+  v1,
+  v2,
+  label1,
+  label2,
+}: {
+  v1: number;
+  v2: number;
+  label1: string;
+  label2: string;
+}) {
+  const min = Math.min(v1, v2) - 20;
+  const max = Math.max(v1, v2) + 20;
+  const range = max - min || 1;
+  const p1 = ((v1 - min) / range) * 100;
+  const p2 = ((v2 - min) / range) * 100;
+
+  return (
+    <div className="space-y-2">
+      <div className="relative h-3 rounded-full bg-zinc-800 overflow-visible">
+        <div
+          className="absolute top-0 bottom-0 rounded-full bg-zinc-600"
+          style={{
+            left: `${Math.min(p1, p2)}%`,
+            width: `${Math.abs(p2 - p1)}%`,
+          }}
+        />
+        <div
+          className="absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white border-2 border-zinc-900 z-10"
+          style={{ left: `${p1}%`, transform: "translate(-50%, -50%)" }}
+        />
+        <div
+          className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border-2 border-zinc-900 z-10 ${v2 > v1 ? "bg-emerald-400" : v2 < v1 ? "bg-red-400" : "bg-white"}`}
+          style={{ left: `${p2}%`, transform: "translate(-50%, -50%)" }}
+        />
+      </div>
+      <div className="flex justify-between text-[10px] text-zinc-500">
+        <span className="truncate max-w-[45%]">{label1}: {v1}</span>
+        <span className="truncate max-w-[45%] text-right">{label2}: {v2}</span>
+      </div>
+    </div>
+  );
+}
+
+function ComparePlayerCard({
+  player,
+  calcRating,
+  isWinner,
+}: {
+  player: PlayerData;
+  calcRating: number | null;
+  isWinner: boolean;
+}) {
+  const t = useT();
+  return (
+    <div className={`rounded-lg border bg-zinc-900 p-4 ${isWinner ? "border-emerald-800/60" : "border-zinc-800"}`}>
+      <div className="flex items-center gap-3">
+        {player.profileImageUrl ? (
+          <img
+            src={player.profileImageUrl}
+            alt={player.playerName}
+            className="w-12 h-12 rounded-full object-cover flex-shrink-0 border-2 border-zinc-700"
+          />
+        ) : (
+          <div className="w-12 h-12 rounded-full bg-zinc-800 flex-shrink-0 border-2 border-zinc-700 flex items-center justify-center text-zinc-400 text-lg font-bold">
+            {player.playerName.charAt(0)}
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <a
+              href={`https://www.pdga.com/player/${player.pdgaNumber}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-subheading text-white hover:underline truncate"
+            >
+              {player.playerName}
+            </a>
+            {isWinner && (
+              <span className="text-emerald-400 text-xs">▲</span>
+            )}
+          </div>
+          <div className="text-xs text-zinc-500 mt-0.5">#{player.pdgaNumber}</div>
+        </div>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2 text-center">
+        <div className="rounded-lg bg-zinc-800/50 px-2 py-2">
+          <div className="text-[10px] text-zinc-500">{t.compareRating}</div>
+          <div className="font-subheading text-zinc-200">{player.officialRating ?? "—"}</div>
+        </div>
+        <div className="rounded-lg bg-zinc-800/50 px-2 py-2">
+          <div className="text-[10px] text-zinc-500">{t.calculated}</div>
+          <div className={`font-subheading ${isWinner ? "text-emerald-400" : "text-zinc-200"}`}>{calcRating ?? "—"}</div>
+        </div>
+      </div>
+      <div className="mt-2 text-center text-xs text-zinc-600">
+        {player.rounds.length} {t.compareRounds}
+      </div>
+    </div>
+  );
+}
+
+// ─── TournamentsTab ───────────────────────────────────────────────────────────
+
+function TournamentsTab() {
+  const t = useT();
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-lg border border-zinc-800 bg-zinc-900 overflow-hidden">
+        <div className="px-4 py-3 border-b border-zinc-800 bg-zinc-800/50">
+          <h2 className="font-subheading text-white">{t.tournamentsTitle}</h2>
+        </div>
+        <div className="p-6 flex flex-col items-center text-center space-y-5">
+          <div className="w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+              <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+              <path d="M4 22h16" />
+              <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+              <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+              <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+            </svg>
+          </div>
+          <p className="text-sm text-zinc-400 max-w-xs">
+            {t.tournamentsDescription}
+          </p>
+          <a
+            href="https://www.discgolfscene.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-lg bg-white text-zinc-900 px-6 py-3 text-sm font-semibold hover:bg-zinc-200 active:bg-zinc-300 transition-colors min-h-[48px]"
+          >
+            {t.tournamentsOpen}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              <polyline points="15 3 21 3 21 9" />
+              <line x1="10" y1="14" x2="21" y2="3" />
+            </svg>
+          </a>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
+        <p className="text-xs text-zinc-500 text-center">
+          discgolfscene.com er en ekstern tjeneste og vedlikeholdes ikke av oss.
+        </p>
+      </div>
     </div>
   );
 }
@@ -999,24 +1509,23 @@ function GoalSection({ playerData }: { playerData: PlayerData }) {
                             {pace.requiredAvg}
                           </dd>
                         </div>
-                        <div>
+                        {pace.requiredAvg !== null && (
+                          <RatingBar
+                            current={currentRating}
+                            required={pace.requiredAvg}
+                            target={parseInt(targetRating, 10)}
+                          />
+                        )}
+                        <div className="pt-1">
                           <dt className="text-xs text-zinc-500">{t.diffFromCurrent}</dt>
-                          <dd className="text-sm font-mono text-zinc-300">
-                            {diff !== null &&
-                              (diff > 0
-                                ? `+${diff} ${t.perRound}`
-                                : `${diff} ${t.perRound}`)}
+                          <dd className="text-sm font-mono text-zinc-400">
+                            {diff !== null && diff > 0 ? `+${diff}` : diff} {t.perRound}
                           </dd>
                         </div>
-                        <RatingBar
-                          current={currentRating}
-                          required={pace.requiredAvg!}
-                          target={parseInt(targetRating, 10)}
-                        />
                       </>
                     ) : (
-                      <div className="text-center py-2">
-                        <p className="text-sm text-red-400/80">{t.notReachable}</p>
+                      <div>
+                        <p className="text-sm text-zinc-500">{t.notReachable}</p>
                         <p className="text-xs text-zinc-600 mt-1">
                           {t.maxProjected} {pace.projectedRating}
                         </p>
@@ -1028,9 +1537,10 @@ function GoalSection({ playerData }: { playerData: PlayerData }) {
             })}
           </div>
 
+          {/* Summary table */}
           <div className="overflow-x-auto -mx-4 sm:mx-0">
-            <div className="min-w-[480px] sm:min-w-0 px-4 sm:px-0">
-              <div className="rounded-lg border border-zinc-800 bg-zinc-900">
+            <div className="min-w-[400px] sm:min-w-0 px-4 sm:px-0">
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900 overflow-hidden">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-zinc-800 bg-zinc-800/50 text-left">
@@ -1038,15 +1548,13 @@ function GoalSection({ playerData }: { playerData: PlayerData }) {
                       <th className="px-3 py-2 font-medium text-zinc-400">{t.colRounds}</th>
                       <th className="px-3 py-2 font-medium text-zinc-400">{t.colAvgNeeded}</th>
                       <th className="px-3 py-2 font-medium text-zinc-400">{t.colVsCurrent}</th>
-                      <th className="px-3 py-2 font-medium text-zinc-400">{t.colStatus}</th>
+                      <th className="px-3 py-2 font-medium text-zinc-400"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {results.map((pace) => {
                       const diff =
-                        pace.requiredAvg !== null
-                          ? pace.requiredAvg - currentRating
-                          : null;
+                        pace.requiredAvg !== null ? pace.requiredAvg - currentRating : null;
                       const tier = getDifficultyTier(diff, pace.feasible);
                       return (
                         <tr
@@ -1611,7 +2119,8 @@ function RoundsTable({
     const hasMore = allRounds.length > ROUNDS_LIMIT;
 
     return (
-      <div className="space-y-2">
+      <div className="space-y-3">
+        <h3 className="text-sm font-subheading text-zinc-300">{t.roundDetails}</h3>
         <div className="overflow-x-auto -mx-4 sm:mx-0">
           <div className="min-w-[500px] sm:min-w-0 px-4 sm:px-0">
             <div className="rounded-lg border border-zinc-800 bg-zinc-900">
@@ -1666,74 +2175,76 @@ function RoundsTable({
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-subheading text-zinc-400">{t.roundDetails}</h3>
+      <h3 className="text-sm font-subheading text-zinc-300">{t.roundDetails}</h3>
       <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-zinc-500">
         <span className="flex items-center gap-1">
-          <span className="inline-block w-3 h-3 rounded-sm bg-emerald-900/60 border border-emerald-700/50" />
-          {t.legendInWindow}
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="inline-block w-3 h-3 rounded-sm bg-emerald-800/50 border border-emerald-600/50" />
+          <span className="inline-block w-3 h-3 rounded-sm bg-emerald-950/40 border border-emerald-800/50" />
           {t.legendDoubleWeighted}
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block w-3 h-3 rounded-sm bg-zinc-800 border border-zinc-600" />
+          <span className="inline-block w-3 h-3 rounded-sm bg-emerald-950/20 border border-zinc-700" />
+          {t.legendInWindow}
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block w-3 h-3 rounded-sm bg-zinc-950 border border-zinc-700" />
           {t.legendOutlier}
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block w-3 h-3 rounded-sm bg-sky-900/40 border border-sky-700/40" />
+          <span className="inline-block w-3 h-3 rounded-sm bg-sky-950/30 border border-zinc-700" />
           {t.legendNewRound}
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block w-3 h-3 rounded-sm bg-zinc-900 border border-zinc-800" />
+          <span className="inline-block w-3 h-3 rounded-sm bg-zinc-950/50 border border-zinc-700" />
           {t.legendOutsideWindow}
         </span>
       </div>
-      <div className="overflow-x-auto -mx-4 sm:mx-0">
-        <div className="min-w-[500px] sm:min-w-0 px-4 sm:px-0">
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-zinc-800 bg-zinc-800/50 text-left">
-                  <th className="px-3 py-2 font-medium text-zinc-400">{t.colTournament}</th>
-                  <th className="px-3 py-2 font-medium text-zinc-400">{t.colDate}</th>
-                  <th className="px-3 py-2 font-medium text-zinc-400">{t.colRating}</th>
-                  <th className="px-3 py-2 font-medium text-zinc-400">{t.colWeight}</th>
-                  <th className="px-3 py-2 font-medium text-zinc-400">{t.colStatus}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visible.map((r, i) => (
-                  <tr
-                    key={i}
-                    className={`border-b border-zinc-800/50 last:border-0 ${rowColor(r)}`}
-                  >
-                    <td
-                      className={`px-3 py-2.5 ${
-                        r.isOutlier ? "line-through text-zinc-600" : "text-zinc-300"
-                      }`}
-                    >
-                      {r.isNew && (
-                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-sky-400 mr-1.5 align-middle" />
-                      )}
-                      {truncName(r.eventName)}
-                    </td>
-                    <td className="px-3 py-2.5 whitespace-nowrap text-zinc-500">{r.date}</td>
-                    <td
-                      className={`px-3 py-2.5 font-mono ${
-                        r.isDoubleWeighted ? "font-bold text-white" : "text-zinc-300"
-                      }`}
-                    >
-                      {r.roundRating}
-                    </td>
-                    <td className="px-3 py-2.5 font-mono text-zinc-500">{r.weight}x</td>
-                    <td className="px-3 py-2.5">
-                      <StatusBadge round={r} />
-                    </td>
+      <div className="space-y-2">
+        <div className="overflow-x-auto -mx-4 sm:mx-0">
+          <div className="min-w-[400px] sm:min-w-0 px-4 sm:px-0">
+            <div className="rounded-lg border border-zinc-800 bg-zinc-900">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-800 bg-zinc-800/50 text-left">
+                    <th className="px-3 py-2 font-medium text-zinc-400">{t.colTournament}</th>
+                    <th className="px-3 py-2 font-medium text-zinc-400">{t.colDate}</th>
+                    <th className="px-3 py-2 font-medium text-zinc-400">{t.colRating}</th>
+                    <th className="px-3 py-2 font-medium text-zinc-400">{t.colWeight}</th>
+                    <th className="px-3 py-2 font-medium text-zinc-400">{t.colStatus}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {visible.map((r, i) => (
+                    <tr
+                      key={i}
+                      className={`border-b border-zinc-800/50 last:border-0 ${rowColor(r)}`}
+                    >
+                      <td
+                        className={`px-3 py-2.5 ${
+                          r.isOutlier ? "line-through text-zinc-600" : "text-zinc-300"
+                        }`}
+                      >
+                        {r.isNew && (
+                          <span className="inline-block w-1.5 h-1.5 rounded-full bg-sky-400 mr-1.5 align-middle" />
+                        )}
+                        {truncName(r.eventName)}
+                      </td>
+                      <td className="px-3 py-2.5 whitespace-nowrap text-zinc-500">{r.date}</td>
+                      <td
+                        className={`px-3 py-2.5 font-mono ${
+                          r.isDoubleWeighted ? "font-bold text-white" : "text-zinc-300"
+                        }`}
+                      >
+                        {r.roundRating}
+                      </td>
+                      <td className="px-3 py-2.5 font-mono text-zinc-500">{r.weight}x</td>
+                      <td className="px-3 py-2.5">
+                        <StatusBadge round={r} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
