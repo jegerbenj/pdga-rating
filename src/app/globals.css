@@ -33,9 +33,15 @@ body {
 .font-body {
   font-family: var(--font-body);
   font-weight: 400;
+  letter-spacing: 0.2px;
 }
 
 /* Native date input styling on dark background */
 input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(1);
+}
+
+/* Safe area support for bottom nav (iPhone notch/home indicator) */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
 }
