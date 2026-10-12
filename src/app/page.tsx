@@ -7,6 +7,7 @@ import type {
   CalculatedRound,
 } from "@/lib/types";
 import { calculateRating } from "@/lib/rating-calculator";
+import { LeaderboardTab, WorldRankChip } from "@/components/LeaderboardTab";
 
 // ─── Language system ──────────────────────────────────────────────────────────
 
@@ -19,6 +20,7 @@ interface Translations {
   tabAnalyse: string;
   tabCompare: string;
   tabTournaments: string;
+  tabWorld: string;
   tabManual: string;
   pdgaNumberLabel: string;
   pdgaPlaceholder: string;
@@ -26,6 +28,7 @@ interface Translations {
   fetchingButton: string;
   errorInvalidNumber: string;
   errorFetch: string;
+  errorBlocked: string;
   errorNetwork: string;
   subTabCalculate: string;
   subTabGoal: string;
@@ -144,6 +147,7 @@ const translations: Record<Lang, Translations> = {
     tabAnalyse: "Analyse",
     tabCompare: "Sammenligne",
     tabTournaments: "Turneringer",
+    tabWorld: "Verden",
     tabManual: "Manuell",
     pdgaNumberLabel: "PDGA-nummer",
     pdgaPlaceholder: "f.eks. 281989",
@@ -151,6 +155,7 @@ const translations: Record<Lang, Translations> = {
     fetchingButton: "Henter...",
     errorInvalidNumber: "Vennligst oppgi et gyldig PDGA-nummer.",
     errorFetch: "Kunne ikke hente spillerdata.",
+    errorBlocked: "PDGA stoppet oppslaget. Nettstedet deres krever en nettlesersjekk, så serveren fikk ikke lest spillersiden.",
     errorNetwork: "Nettverksfeil. Kunne ikke nå serveren.",
     subTabCalculate: "Beregn rating",
     subTabGoal: "Målsetting",
@@ -266,6 +271,7 @@ const translations: Record<Lang, Translations> = {
     tabAnalyse: "Analyse",
     tabCompare: "Compare",
     tabTournaments: "Tournaments",
+    tabWorld: "World",
     tabManual: "Manual",
     pdgaNumberLabel: "PDGA Number",
     pdgaPlaceholder: "e.g. 281989",
@@ -273,6 +279,7 @@ const translations: Record<Lang, Translations> = {
     fetchingButton: "Fetching...",
     errorInvalidNumber: "Please enter a valid PDGA number.",
     errorFetch: "Could not fetch player data.",
+    errorBlocked: "PDGA blocked this lookup. Their site is asking for a browser check, so the server could not read the player page.",
     errorNetwork: "Network error. Could not reach the server.",
     subTabCalculate: "Calculate rating",
     subTabGoal: "Goal setting",
@@ -390,7 +397,7 @@ function useT(): Translations {
 
 // ─── Types & helpers ──────────────────────────────────────────────────────────
 
-type TopTab = "search" | "analyse" | "compare" | "tournaments";
+type TopTab = "search" | "analyse" | "compare" | "world" | "tournaments";
 
 interface NewRound {
   id: number;
@@ -478,6 +485,7 @@ export default function Home() {
             />
           )}
           {activeTab === "compare" && <CompareTab />}
+          {activeTab === "world" && <LeaderboardTab lang={lang} />}
           {activeTab === "tournaments" && <TournamentsTab />}
         </main>
 
@@ -536,6 +544,17 @@ function BottomNav({
       ),
     },
     {
+      id: "world",
+      label: t.tabWorld,
+      icon: (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <path d="M2 12h20" />
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+        </svg>
+      ),
+    },
+    {
       id: "tournaments",
       label: t.tabTournaments,
       icon: (
@@ -558,7 +577,7 @@ function BottomNav({
           <button
             key={item.id}
             onClick={() => onTabChange(item.id)}
-            className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 transition-colors cursor-pointer ${
+            className={`relative flex-1 flex flex-col items-center justify-center gap-1 py-3 transition-colors cursor-pointer ${
               activeTab === item.id
                 ? "text-white"
                 : "text-zinc-500 hover:text-zinc-300"
@@ -624,7 +643,8 @@ function FetchMode({
       const res = await fetch(`/api/pdga/${num}`);
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || t.errorFetch);
+        const blocked = typeof data.error === "string" && /blocked|browser check/i.test(data.error);
+        setError(blocked ? t.errorBlocked : data.error || t.errorFetch);
         return;
       }
       onPlayerData(data as PlayerData);
@@ -1996,6 +2016,7 @@ function ManualMode() {
 
 function PlayerInfo({ data }: { data: PlayerData }) {
   const t = useT();
+  const lang = useContext(LangContext);
   return (
     <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
       <div className="flex items-center gap-4">
@@ -2028,6 +2049,7 @@ function PlayerInfo({ data }: { data: PlayerData }) {
               <span className="font-semibold text-zinc-200">{data.officialRating}</span>
             </p>
           )}
+          <WorldRankChip lang={lang} pdga={data.pdgaNumber} />
           <p className="text-sm text-zinc-500">
             {data.rounds.length} {t.roundsFound}
           </p>

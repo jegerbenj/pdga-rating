@@ -111,32 +111,90 @@ function parseRatingsHistory(html: string): RatingsHistoryEntry[] {
   return entries;
 }
 
-export async function scrapePlayer(pdgaNumber: number): Promise<PlayerData> {
-  const [detailsRes, historyRes] = await Promise.all([
-    fetch(`${BASE_URL}/${pdgaNumber}/details`, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (compatible; PDGARatingCalc/1.0; educational)",
-      },
-      next: { revalidate: 300 },
-    }),
-    fetch(`${BASE_URL}/${pdgaNumber}/history`, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (compatible; PDGARatingCalc/1.0; educational)",
-      },
-      next: { revalidate: 300 },
-    }),
-  ]);
+const PAGE_HEADERS = {
+  "User-Agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.9",
+};
 
-  if (!detailsRes.ok) {
+function isBlocked(status: number, html: string): boolean {
+  return (
+    status === 403 ||
+    status === 429 ||
+    html.includes("Just a moment") ||
+    html.includes("challenge-platform") ||
+    html.includes("cf-mitigated")
+  );
+}
+
+async function fetchPdgaHtml(url: string): Promise<{ ok: boolean; status: number; html: string }> {
+  try {
+    const direct = await fetch(url, {
+      headers: PAGE_HEADERS,
+      cache: "no-store",
+      signal: AbortSignal.timeout(8000),
+    });
+    const directHtml = await direct.text();
+    if (direct.ok && !isBlocked(direct.status, directHtml)) {
+      return { ok: true, status: direct.status, html: directHtml };
+    }
+    const bridged = await fetchThroughBrowser(url);
+    if (bridged) return { ok: true, status: 200, html: bridged };
+    return { ok: false, status: direct.status, html: directHtml };
+  } catch {
+    const bridged = await fetchThroughBrowser(url);
+    if (bridged) return { ok: true, status: 200, html: bridged };
+    return { ok: false, status: 0, html: "" };
+  }
+}
+
+async function fetchThroughBrowser(url: string): Promise<string | null> {
+  try {
+    const healthRes = await fetch("http://127.0.0.1:8787/health", {
+      signal: AbortSignal.timeout(400),
+    });
+    if (!healthRes.ok) return null;
+    const health = (await healthRes.json()) as { lastSeen?: number };
+    if (!health.lastSeen || Date.now() - health.lastSeen > 45000) return null;
+
+    const path = new URL(url).pathname;
+    const res = await fetch("http://127.0.0.1:8787/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path }),
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { status?: number; html?: string };
+    if (data.status !== 200 || !data.html || isBlocked(data.status, data.html)) return null;
+    return data.html;
+  } catch {
+    return null;
+  }
+}
+
+export async function scrapePlayer(pdgaNumber: number): Promise<PlayerData> {
+  let details = await fetchPdgaHtml(`${BASE_URL}/${pdgaNumber}/details`);
+  if (!details.ok) {
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    details = await fetchPdgaHtml(`${BASE_URL}/${pdgaNumber}/details`);
+  }
+
+  if (!details.ok) {
+    if (isBlocked(details.status, details.html)) {
+      throw new Error(
+        "PDGA blocked this lookup. Their site is asking for a browser check, so the server could not read the player page."
+      );
+    }
     throw new Error(
-      `Failed to fetch player details (HTTP ${detailsRes.status}). Check that the PDGA number is correct.`
+      `Failed to fetch player details (HTTP ${details.status}). Check that the PDGA number is correct.`
     );
   }
 
-  const detailsHtml = await detailsRes.text();
-  const historyHtml = historyRes.ok ? await historyRes.text() : "";
+  const history = await fetchPdgaHtml(`${BASE_URL}/${pdgaNumber}/history`);
+  const detailsHtml = details.html;
+  const historyHtml = history.ok ? history.html : "";
 
   const playerName = extractPlayerName(detailsHtml);
   if (!playerName) {
