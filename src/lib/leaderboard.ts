@@ -236,7 +236,7 @@ export function queryLeaderboard(filters: LeaderboardFilters): LeaderboardPage {
   const total = index.players.length;
   const sort = filters.sort ?? "rank";
   const dir = filters.dir ?? defaultDir(sort);
-  const pageSize = Math.min(50, Math.max(1, filters.pageSize ?? 40));
+  const pageSize = Math.min(100, Math.max(1, filters.pageSize ?? 100));
   const query = filters.q?.trim().toLowerCase() ?? "";
 
   if (filters.ids) {

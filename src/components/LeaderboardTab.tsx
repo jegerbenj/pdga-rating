@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 type Lang = "no" | "en";
 
@@ -60,7 +60,7 @@ const copy = {
   no: {
     title: "Verdensrating",
     subtitle: "Plassering etter gjeldende PDGA-rating, med filter og en tavle for spillerne du følger.",
-    world: "Verden",
+    world: "Leaderboard",
     favorites: "Favoritter",
     search: "Søk navn eller PDGA-nummer",
     country: "Land",
@@ -127,7 +127,7 @@ const copy = {
   en: {
     title: "World rating",
     subtitle: "Current PDGA rating places, with filters and a board of the players you follow.",
-    world: "World",
+    world: "Leaderboard",
     favorites: "Favorites",
     search: "Search name or PDGA number",
     country: "Country",
@@ -202,7 +202,16 @@ const CONTINENTS = [
   "Oceania",
 ];
 
-const RATING_FLOORS = [1000, 975, 950, 925, 900, 850];
+const RATING_FLOORS = [1000, 975, 950, 925, 900, 850, 800];
+const PAGE_SIZE = 100;
+
+function boardQuery(): { min: string; page: number } {
+  if (typeof window === "undefined") return { min: "", page: 1 };
+  const params = new URLSearchParams(window.location.search);
+  const min = params.get("min") ?? "";
+  const page = Math.max(1, Number(params.get("page")) || 1);
+  return { min, page };
+}
 
 function formatNumber(lang: Lang, value: number): string {
   return new Intl.NumberFormat(lang === "no" ? "nb-NO" : "en-US").format(value);
@@ -273,10 +282,12 @@ export function LeaderboardTab({ lang }: { lang: Lang }) {
   const [classification, setClassification] = useState("");
   const [division, setDivision] = useState("");
   const [state, setState] = useState("");
-  const [minRating, setMinRating] = useState("");
+  const initialQuery = useState(boardQuery)[0];
+  const [minRating, setMinRating] = useState(initialQuery.min);
   const [minEvents, setMinEvents] = useState("");
   const [sort, setSort] = useState("rank");
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(initialQuery.page);
+  const skipPageReset = useRef(true);
   const [board, setBoard] = useState<BoardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -309,8 +320,24 @@ export function LeaderboardTab({ lang }: { lang: Lang }) {
   }, [q]);
 
   useEffect(() => {
+    if (skipPageReset.current) {
+      skipPageReset.current = false;
+      return;
+    }
     setPage(1);
   }, [debouncedQ, country, continent, gender, classification, division, state, minRating, minEvents, sort]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    params.set("tab", "world");
+    if (minRating) params.set("min", minRating);
+    else params.delete("min");
+    params.set("pageSize", String(PAGE_SIZE));
+    if (page > 1) params.set("page", String(page));
+    else params.delete("page");
+    const next = `${window.location.pathname}?${params.toString()}`;
+    window.history.replaceState(null, "", next);
+  }, [minRating, page]);
 
   useEffect(() => {
     if (!myPdga) return;
@@ -342,6 +369,7 @@ export function LeaderboardTab({ lang }: { lang: Lang }) {
     if (minEvents) params.set("minEvents", minEvents);
     params.set("sort", sort);
     params.set("page", String(page));
+    params.set("pageSize", String(PAGE_SIZE));
     if (myPdga) params.set("highlight", String(myPdga));
     let cancelled = false;
     setLoading(true);

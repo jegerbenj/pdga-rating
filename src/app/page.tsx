@@ -147,7 +147,7 @@ const translations: Record<Lang, Translations> = {
     tabAnalyse: "Analyse",
     tabCompare: "Sammenligne",
     tabTournaments: "Turneringer",
-    tabWorld: "Verden",
+    tabWorld: "Leaderboard",
     tabManual: "Manuell",
     pdgaNumberLabel: "PDGA-nummer",
     pdgaPlaceholder: "f.eks. 281989",
@@ -271,7 +271,7 @@ const translations: Record<Lang, Translations> = {
     tabAnalyse: "Analyse",
     tabCompare: "Compare",
     tabTournaments: "Tournaments",
-    tabWorld: "World",
+    tabWorld: "Leaderboard",
     tabManual: "Manual",
     pdgaNumberLabel: "PDGA Number",
     pdgaPlaceholder: "e.g. 281989",
@@ -425,6 +425,10 @@ export default function Home() {
   useEffect(() => {
     const saved = localStorage.getItem("lang") as Lang | null;
     if (saved === "no" || saved === "en") setLang(saved);
+    const tab = new URLSearchParams(window.location.search).get("tab");
+    if (tab === "search" || tab === "analyse" || tab === "compare" || tab === "world" || tab === "tournaments") {
+      setActiveTab(tab);
+    }
   }, []);
 
   function toggleLang() {
@@ -489,7 +493,17 @@ export default function Home() {
           {activeTab === "tournaments" && <TournamentsTab />}
         </main>
 
-        <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+        <BottomNav
+          activeTab={activeTab}
+          onTabChange={(tab) => {
+            setActiveTab(tab);
+            const params = new URLSearchParams(window.location.search);
+            if (tab === "search") params.delete("tab");
+            else params.set("tab", tab);
+            const qs = params.toString();
+            window.history.replaceState(null, "", qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
+          }}
+        />
 
         <div className="h-px bg-zinc-800" />
         <div className="bg-zinc-900 text-center py-2">
